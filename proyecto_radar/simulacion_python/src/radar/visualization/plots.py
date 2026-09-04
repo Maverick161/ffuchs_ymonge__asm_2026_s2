@@ -118,3 +118,28 @@ def plot_phase_spectrum(spectrum: Spectrum, filepath: str = None, zoom_freq: flo
     ax.set_yticks([-180, -90, 0, 90, 180])
     
     _save_or_show(fig, filepath)
+
+def plot_execution_times(ns: list[int], dft_times: list[float], fft_times: list[float], filepath: str = None):
+    """
+    Grafica la comparación de tiempos de ejecución (N vs Tiempo) en escala logarítmica.
+    """
+    fig, ax = plt.subplots()
+    
+    ax.plot(ns, dft_times, 'ro-', label=r'DFT $\mathcal{O}(N^2)$')
+    ax.plot(ns, fft_times, 'bo-', label=r'FFT $\mathcal{O}(N \log N)$')
+    
+    ax.set_title("Comparativa de Rendimiento Computacional")
+    ax.set_xlabel("Número de Muestras (N)")
+    ax.set_ylabel("Tiempo Promedio de Ejecución (s)")
+    
+    # Escala logarítmica en Y para observar detalles en algoritmos rápidos y lentos
+    ax.set_yscale('log')
+    # Eje X en base 2 porque nuestras N son potencias de 2
+    ax.set_xscale('log', base=2)
+    ax.set_xticks(ns)
+    ax.get_xaxis().set_major_formatter(plt.ScalarFormatter())
+    
+    ax.legend()
+    ax.grid(True, which="both", ls="--", alpha=0.5)
+    
+    _save_or_show(fig, filepath)
