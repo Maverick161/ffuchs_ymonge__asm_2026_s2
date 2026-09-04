@@ -1,40 +1,83 @@
 """
 Módulo: generators.py
----------------------
-Responsabilidad: Generar señales acústicas sintéticas para realizar pruebas en software.
-Las funciones de este módulo construyen matemáticamente las señales (evaluando senos
-y distribuciones aleatorias) y las devuelven empaquetadas en nuestro objeto `Signal`.
+Responsabilidad: Generar señales acústicas sintéticas (senoides y ruido) para pruebas.
+Dependencias: NumPy, Signal (DTO del dominio).
 """
 
-import numpy as np  # Importamos numpy para operaciones matemáticas vectorizadas (más rápidas que bucles for)
-from radar.signals.signal import Signal  # Importamos la estructura de datos que creamos en el archivo anterior
+import numpy as np
+from typing import Optional
+from radar.signals.signal import Signal
 
-def generate_sine(frequency: float, sample_rate: float, duration: float, amplitude: float = 1.0, phase: float = 0.0) -> Signal:
-    """Genera una señal senoidal pura."""
-    
-    # Calculamos el número exacto de muestras multiplicando duración (s) por frecuencia de muestreo (Hz)
+
+def generate_sine(
+    frequency: float,
+    sample_rate: float,
+    duration: float,
+    amplitude: float = 1.0,
+    phase: float = 0.0
+) -> Signal:
+    """
+    Genera una señal senoidal pura.
+
+    Args:
+        frequency: Frecuencia en Hz.
+        sample_rate: Muestras por segundo (>0).
+        duration: Segundos (>0).
+        amplitude: Amplitud pico.
+        phase: Fase inicial en radianes.
+
+    Returns:
+        Signal con las muestras generadas.
+    """
+    # Validación de parámetros físicos (evita división por cero o arrays vacíos)
+    if sample_rate <= 0:
+        raise ValueError(f"sample_rate debe ser > 0. Recibido: {sample_rate}")
+    if duration <= 0:
+        raise ValueError(f"duration debe ser > 0. Recibido: {duration}")
+
+    # Construcción del eje temporal discreto
     num_samples = int(sample_rate * duration)
-    
-    # Creamos el eje temporal discreto: un arreglo de 0 a num_samples-1, escalado a segundos
     t = np.arange(num_samples) / sample_rate
-    
-    # Evaluamos la ecuación matemática de la onda: x(t) = A * sin(2 * pi * f * t + phi)
+
+    # Síntesis de la onda
     samples = amplitude * np.sin(2 * np.pi * frequency * t + phase)
-    
-    # Empaquetamos y retornamos el resultado utilizando nuestra clase base
+
     return Signal(samples=samples, sample_rate=sample_rate, name=f"Sine_{frequency}Hz")
 
-def add_noise(signal: Signal, noise_variance: float = 0.1) -> Signal:
-    """Añade ruido blanco gaussiano a una señal existente."""
-    
-    # Calculamos la desviación estándar como la raíz cuadrada de la varianza solicitada
+
+def add_noise(
+    signal: Signal,
+    noise_variance: float = 0.1,
+    rng: Optional[np.random.Generator] = None
+) -> Signal:
+    """
+    Añade ruido blanco gaussiano (AWGN) a una señal existente.
+
+    Args:
+        signal: Señal limpia.
+        noise_variance: Varianza del ruido (>=0).
+        rng: Generador inyectado para garantizar reproducibilidad en tests.
+
+    Returns:
+        Signal con el ruido superpuesto.
+    """
+    # La varianza negativa no tiene sentido físico ni matemático
+    if noise_variance < 0:
+        raise ValueError(f"noise_variance no puede ser negativa. Recibido: {noise_variance}")
+
     std_dev = np.sqrt(noise_variance)
-    
-    # Generamos valores aleatorios con distribución normal (media 0, desviación calculada) del mismo tamaño que la señal
-    noise = np.random.normal(0, std_dev, signal.number_of_samples)
-    
-    # Sumamos el ruido vectorizado a las muestras originales
+
+    # Generación del ruido (usa el generador inyectado si existe, para tests deterministas)
+    if rng is None:
+        noise = np.random.normal(0, std_dev, signal.number_of_samples)
+    else:
+        noise = rng.normal(0, std_dev, signal.number_of_samples)
+
+    # Superposición aditiva (señal + ruido)
     noisy_samples = signal.samples + noise
-    
-    # Retornamos una nueva señal contaminada con el ruido, preservando la frecuencia de muestreo original
-    return Signal(samples=noisy_samples, sample_rate=signal.sample_rate, name=f"{signal.name}_Noisy")
+
+    return Signal(
+        samples=noisy_samples,
+        sample_rate=signal.sample_rate,
+        name=f"{signal.name}_Noisy"
+    )

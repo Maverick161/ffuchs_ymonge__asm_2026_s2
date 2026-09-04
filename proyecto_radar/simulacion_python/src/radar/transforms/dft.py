@@ -1,45 +1,41 @@
 """
 Módulo: dft.py
---------------
-Responsabilidad: Calcular la Transformada Discreta de Fourier utilizando su definición
-matemática estricta (fuerza bruta). Toma muestras en el dominio del tiempo y devuelve 
-un arreglo de números complejos que representa el dominio de la frecuencia.
-Complejidad teórica: O(N^2).
+Responsabilidad: Implementación directa de la Transformada Discreta de Fourier (DFT) según su definición matemática.
+Dependencias: NumPy.
 """
 
 import numpy as np
 
+
 def compute_dft(samples: np.ndarray) -> np.ndarray:
     """
-    Calcula la Transformada Discreta de Fourier (DFT) de un arreglo de entrada 1D.
-    Retorna un arreglo de tipo np.complex128.
+    Calcula la DFT de un arreglo 1D (real o complejo) usando la definición:
+    X[k] = Σ_{n=0}^{N-1} x[n] * exp(-j*2π*k*n/N)
+
+    Args:
+        samples: Arreglo de entrada.
+
+    Returns:
+        Espectro en frecuencia (complejo).
     """
-    
-    # Convertimos la entrada a un arreglo de numpy por seguridad.
-    x = np.asarray(samples, dtype=float)
-    
-    # N es el número total de muestras en nuestra señal.
+    # Convierte a array y valida estructura
+    x_raw = np.asarray(samples)
+
+    if x_raw.size == 0:
+        raise ValueError("La señal no puede estar vacía.")
+    if x_raw.ndim != 1:
+        raise ValueError(f"Se requiere arreglo 1D, recibido {x_raw.ndim}D.")
+
+    # Cast a complejo para preservar la parte imaginaria si la entrada la tuviera
+    x = x_raw.astype(np.complex128)
     N = len(x)
-    
-    # Creamos un arreglo vacío de ceros complejos para almacenar el resultado X[k].
-    # np.complex128 garantiza precisión de 64-bits para la parte real y 64 para la imaginaria.
+
     X = np.zeros(N, dtype=np.complex128)
-    
-    # Bucle exterior: iteramos sobre cada frecuencia 'k' desde 0 hasta N-1.
+
+    # Implementación O(N²) por definición (no optimizada, pero exacta)
     for k in range(N):
-        
-        # Bucle interior: iteramos sobre cada muestra temporal 'n' desde 0 hasta N-1.
         for n in range(N):
-            
-            # Ángulo de la exponencial compleja: -j * 2 * pi * k * n / N
-            # Usamos 1j nativo de Python para representar el número imaginario 'j'.
             angle = -1j * 2 * np.pi * k * n / N
-            
-            # Evaluamos e^(ángulo). Por la identidad de Euler, esto es cos(angulo) + j*sin(angulo).
-            complex_exp = np.exp(angle)
-            
-            # Multiplicamos la muestra actual x[n] por la exponencial y la sumamos al acumulador X[k].
-            X[k] += x[n] * complex_exp
-            
-    # Devolvemos el arreglo completo resultante con el espectro complejo.
+            X[k] += x[n] * np.exp(angle)
+
     return X
