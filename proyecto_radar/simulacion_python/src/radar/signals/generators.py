@@ -81,3 +81,29 @@ def add_noise(
         sample_rate=signal.sample_rate,
         name=f"{signal.name}_Noisy"
     )
+
+def generate_chirp(start_frequency: float, end_frequency: float, sample_rate: float, duration: float, amplitude: float = 1.0, phase: float = 0.0) -> Signal:
+    """
+    Genera un chirp lineal (barrido de frecuencia continuo).
+    Ideal para radar acústico por sus excelentes propiedades de autocorrelación.
+    """
+    if sample_rate <= 0:
+        raise ValueError(f"La frecuencia de muestreo debe ser > 0. Se recibió: {sample_rate}")
+    if duration <= 0:
+        raise ValueError(f"La duración debe ser > 0. Se recibió: {duration}")
+
+    num_samples = int(sample_rate * duration)
+    t = np.arange(num_samples) / sample_rate
+    
+    # Tasa de cambio de frecuencia (Hz por segundo)
+    c = (end_frequency - start_frequency) / duration
+    
+    # Fase instantánea integrada + fase inicial solicitada
+    phase_arr = 2 * np.pi * (start_frequency * t + 0.5 * c * (t ** 2)) + phase
+    samples = amplitude * np.sin(phase_arr)
+    
+    return Signal(
+        samples=samples, 
+        sample_rate=sample_rate, 
+        name=f"Chirp_{start_frequency}to{end_frequency}Hz"
+    )
