@@ -1,70 +1,104 @@
 """
-Módulo: test_correlation.py
----------------------------
+Módulo: test_correlation_fft.py
+-------------------------------
 Responsabilidad: Validar matemáticamente la implementación de correlación
-cruzada directa.
+cruzada basada en FFT.
 
 Las pruebas verifican:
-- Valores completos de correlación.
-- Comparación contra numpy.correlate.
-- Convención y estructura de los lags.
+- Detección de retardos conocidos.
+- Resultado completo de una correlación conocida.
+- Equivalencia entre correlación FFT y correlación directa.
+- Comparación independiente contra numpy.correlate.
+- Diferentes combinaciones de longitudes Nx y Ny.
+- Correcto uso de Zero Padding.
+- Prevención de correlación circular accidental.
+- Manejo correcto de señales complejas y conjugación.
 - Retardos positivos, negativos y nulos.
-- Atenuación de señales.
 - Autocorrelación.
-- Señales de diferentes longitudes.
-- Señales complejas y conjugación.
-- Señales nulas.
-- Conservación de las señales originales.
-- Consistencia del objeto CorrelationResult.
-- Manejo de frecuencias de muestreo incompatibles.
+- Caso frontera N = 1.
+- Señales completamente nulas.
+- Estructura completa de los lags.
+- Conservación de frecuencia de muestreo y metadatos.
+- Inmutabilidad de las señales TX y RX.
+- Rechazo de frecuencias de muestreo incompatibles.
 
 Convención utilizada:
 Un lag positivo significa que la señal recibida RX aparece
 después de la señal transmitida TX.
 
+La correlación FFT debe producir el mismo resultado matemático que:
+
+    cross_correlate_direct()
+
+y que la referencia independiente:
+
+    np.correlate(rx.samples, tx.samples, mode="full")
+
 Para ejecutar:
-pytest tests/test_correlation.py
+
+pytest tests/test_correlation_fft.py
 """
 
 import numpy as np
 import pytest
 
 from radar.signals.signal import Signal
-from radar.analysis.correlation import cross_correlate_direct
+from radar.analysis.correlation import (
+    cross_correlate_direct,
+    cross_correlate_fft,
+)
 
 
-# Definimos tolerancias numéricas explícitas para las comparaciones
-# entre nuestra implementación y los resultados de referencia.
+# Definimos tolerancias numéricas explícitas.
+#
+# La correlación mediante FFT utiliza operaciones en punto flotante
+# y puede introducir errores numéricos muy pequeños debido a:
+#
+# - FFT
+# - multiplicación compleja
+# - IFFT
+#
+# Por esta razón no debemos utilizar igualdad exacta para los
+# valores de correlación.
 RTOL = 1e-10
 ATOL = 1e-12
 
 
-def test_correlation_direct_known_delay():
+def test_correlation_fft_known_delay():
     """
-    Caso básico de validación del diseño:
+    Verifica que la implementación mediante FFT detecte
+    correctamente un retardo conocido.
+
+    Caso:
 
         TX = [1, 2, 3, 4]
 
         RX = [0, 0, 0, 1, 2, 3, 4, 0]
 
-    RX contiene una copia de TX desplazada exactamente tres muestras
-    hacia la derecha.
+    RX contiene TX desplazada tres muestras hacia la derecha.
 
     De acuerdo con nuestra convención:
 
-        delay positivo -> lag positivo
+        RX retrasada -> lag positivo
 
-    Por lo tanto, el máximo de correlación debe aparecer en lag = +3.
+    por lo tanto:
+
+        lag = +3
     """
 
     # Construimos la señal transmitida
     tx = Signal(
-        samples=np.array([1.0, 2.0, 3.0, 4.0]),
+        samples=np.array([
+            1.0,
+            2.0,
+            3.0,
+            4.0
+        ]),
         sample_rate=1.0,
         name="TX"
     )
 
-    # Construimos la señal recibida con un retardo conocido de 3 muestras
+    # Construimos la señal recibida con un delay conocido
     rx = Signal(
         samples=np.array([
             0.0,
@@ -80,37 +114,52 @@ def test_correlation_direct_known_delay():
         name="RX"
     )
 
-    # Calculamos la correlación utilizando nuestra implementación directa
-    result = cross_correlate_direct(tx, rx)
+    # Calculamos la correlación utilizando FFT
+    result = cross_correlate_fft(
+        tx,
+        rx
+    )
 
-    # Localizamos el índice donde la magnitud de la correlación es máxima
+    # Localizamos el valor de máxima magnitud
     peak_idx = np.argmax(
         np.abs(result.values)
     )
 
-    # Obtenemos el lag correspondiente al máximo
+    # Obtenemos su lag correspondiente
     peak_lag = result.lags[peak_idx]
 
-    # El retardo conocido debe ser detectado exactamente como +3
+    # El retardo debe ser exactamente +3 muestras
     assert peak_lag == 3
 
 
-def test_correlation_direct_known_complete_result():
+def test_correlation_fft_known_complete_result():
     """
-    Verifica TODOS los valores de una correlación cuyo resultado
-    puede calcularse exactamente.
+    Verifica TODOS los valores de una correlación cuyo
+    resultado se conoce matemáticamente.
 
-    Esto evita que una implementación incorrecta pase la prueba
-    únicamente porque colocó el máximo en el lugar correcto.
+    No basta con verificar únicamente que el pico aparezca
+    en la posición correcta.
+
+    También queremos comprobar que sean correctos:
+
+    - los valores de correlación,
+    - el orden después de la IFFT,
+    - el recorte,
+    - los lags.
     """
 
-    # Definimos la señal transmitida
+    # Señal transmitida
     tx = Signal(
-        samples=np.array([1.0, 2.0, 3.0, 4.0]),
+        samples=np.array([
+            1.0,
+            2.0,
+            3.0,
+            4.0
+        ]),
         sample_rate=1.0
     )
 
-    # Definimos una copia retardada de TX
+    # Señal recibida retrasada
     rx = Signal(
         samples=np.array([
             0.0,
@@ -125,11 +174,13 @@ def test_correlation_direct_known_complete_result():
         sample_rate=1.0
     )
 
-    # Ejecutamos nuestra correlación
-    result = cross_correlate_direct(tx, rx)
+    # Ejecutamos nuestra implementación mediante FFT
+    result = cross_correlate_fft(
+        tx,
+        rx
+    )
 
-    # Resultado completo esperado según la definición de
-    # correlación lineal utilizada en el proyecto.
+    # Resultado completo esperado
     expected_values = np.array([
         0.0,
         0.0,
@@ -144,12 +195,24 @@ def test_correlation_direct_known_complete_result():
         0.0
     ])
 
-    # Los lags correspondientes deben ir desde:
+    # Para:
     #
-    # -(Nx - 1) hasta Ny - 1
-    expected_lags = np.arange(-3, 8)
+    # Nx = 4
+    # Ny = 8
+    #
+    # los lags deben ir desde:
+    #
+    # -(Nx - 1) = -3
+    #
+    # hasta:
+    #
+    # Ny - 1 = 7
+    expected_lags = np.arange(
+        -3,
+        8
+    )
 
-    # Verificamos TODOS los valores de correlación
+    # Comparamos toda la correlación
     assert np.allclose(
         result.values,
         expected_values,
@@ -157,7 +220,7 @@ def test_correlation_direct_known_complete_result():
         atol=ATOL
     )
 
-    # Verificamos TODOS los lags
+    # Comparamos todos los lags
     assert np.array_equal(
         result.lags,
         expected_lags
@@ -167,74 +230,190 @@ def test_correlation_direct_known_complete_result():
 @pytest.mark.parametrize(
     "nx, ny",
     [
+        # Caso mínimo
+        (1, 1),
+
+        # Ambas potencias de dos
         (2, 4),
-        (4, 8),
-        (8, 3),
-        (8, 8),
-        (16, 16),
+
+        # Ambas no potencias de dos
+        (3, 5),
+
+        # TX menor que RX
         (5, 13),
+
+        # Tamaños iguales
+        (16, 16),
+
+        # Potencias de dos diferentes
+        (32, 64),
+
+        # Tamaños arbitrarios que obligan a Zero Padding
+        (50, 80),
+
+        # TX mayor que RX
+        (80, 50),
+
+        # Caso más grande y no potencia de dos
+        (127, 200),
     ]
 )
-def test_correlation_direct_vs_numpy(nx, ny):
+def test_correlation_fft_equivalent_to_direct(nx, ny):
     """
-    Prueba de referencia principal.
+    PRUEBA PRINCIPAL DE EQUIVALENCIA.
 
-    Compara nuestra implementación de correlación directa contra
-    numpy.correlate() para diferentes combinaciones de longitudes.
+    Verifica que la implementación:
 
-    Se prueban situaciones donde:
+        O(N log N)
+
+    mediante FFT produzca el mismo resultado que la implementación:
+
+        O(N²)
+
+    de correlación directa.
+
+    También se prueban diferentes relaciones entre longitudes:
 
         Nx < Ny
         Nx = Ny
         Nx > Ny
 
-    Esto es importante porque en el radar normalmente la señal
-    recibida será más larga que la señal transmitida.
+    y tamaños que no son potencias de dos.
+
+    Esto obliga a cross_correlate_fft() a calcular correctamente:
+
+        L_linear = Nx + Ny - 1
+
+    y posteriormente:
+
+        L_fft = next_power_of_two(L_linear)
     """
 
-    # Creamos un generador pseudoaleatorio con semilla determinista
-    # para garantizar que la prueba sea completamente reproducible.
+    # Creamos un generador reproducible.
+    #
+    # La semilla depende de las dimensiones para generar señales
+    # diferentes en cada combinación sin perder reproducibilidad.
     rng = np.random.default_rng(
-        2026 + nx + ny
+        2026 + nx * 10 + ny
     )
 
-    # Generamos las muestras de TX
-    tx_samples = rng.random(nx)
-
-    # Generamos las muestras de RX
-    rx_samples = rng.random(ny)
-
-    # Construimos las señales
+    # Generamos TX aleatoria
     tx = Signal(
-        samples=tx_samples,
-        sample_rate=1000.0,
+        samples=rng.random(nx),
+        sample_rate=48000.0,
         name="TX"
     )
 
+    # Generamos RX aleatoria
     rx = Signal(
-        samples=rx_samples,
-        sample_rate=1000.0,
+        samples=rng.random(ny),
+        sample_rate=48000.0,
         name="RX"
     )
 
-    # Ejecutamos nuestra implementación
-    result = cross_correlate_direct(
+    # Correlación directa de referencia interna
+    result_direct = cross_correlate_direct(
         tx,
         rx
     )
 
-    # NumPy se utiliza únicamente como implementación de referencia.
+    # Correlación acelerada mediante FFT
+    result_fft = cross_correlate_fft(
+        tx,
+        rx
+    )
+
+    # Ambas implementaciones deben construir exactamente
+    # el mismo eje de retardos.
+    assert np.array_equal(
+        result_fft.lags,
+        result_direct.lags
+    )
+
+    # Los valores deben ser numéricamente equivalentes.
     #
-    # El orden rx, tx corresponde a nuestra convención:
+    # Utilizamos tolerancia porque la ruta FFT introduce
+    # pequeños errores de redondeo.
+    assert np.allclose(
+        result_fft.values,
+        result_direct.values,
+        rtol=RTOL,
+        atol=ATOL
+    )
+
+
+@pytest.mark.parametrize(
+    "nx, ny",
+    [
+        (2, 3),
+        (4, 8),
+        (7, 11),
+        (16, 16),
+        (31, 64),
+        (50, 80),
+        (80, 50),
+    ]
+)
+def test_correlation_fft_vs_numpy_reference(nx, ny):
+    """
+    Compara nuestra implementación FFT contra una referencia
+    independiente proporcionada por NumPy.
+
+    Esto crea una triangulación de validación:
+
+        FFT propia
+            ≈
+        directa propia
+            ≈
+        NumPy
+
+    Si las tres implementaciones coinciden, la confianza en la
+    correctitud matemática aumenta significativamente.
+    """
+
+    # Generador pseudoaleatorio reproducible
+    rng = np.random.default_rng(
+        1234 + nx + ny
+    )
+
+    # Generamos señales reales
+    tx_samples = rng.random(nx)
+    rx_samples = rng.random(ny)
+
+    # Construimos TX
+    tx = Signal(
+        samples=tx_samples,
+        sample_rate=1000.0
+    )
+
+    # Construimos RX
+    rx = Signal(
+        samples=rx_samples,
+        sample_rate=1000.0
+    )
+
+    # Calculamos nuestra correlación FFT
+    result_fft = cross_correlate_fft(
+        tx,
+        rx
+    )
+
+    # NumPy funciona como referencia independiente.
     #
-    # cross_correlate_direct(TX, RX)
+    # El orden:
+    #
+    # np.correlate(RX, TX)
+    #
+    # coincide con nuestra convención:
+    #
+    # cross_correlate_fft(TX, RX)
     expected_values = np.correlate(
         rx.samples,
         tx.samples,
         mode="full"
     )
 
-    # Construimos los lags correspondientes a nuestra convención
+    # Construimos los lags esperados
     expected_lags = np.arange(
         -(nx - 1),
         ny
@@ -242,117 +421,195 @@ def test_correlation_direct_vs_numpy(nx, ny):
 
     # Comparamos todos los valores
     assert np.allclose(
-        result.values,
+        result_fft.values,
         expected_values,
         rtol=RTOL,
         atol=ATOL
     )
 
-    # Comparamos también toda la estructura de lags
+    # Comparamos también el eje completo de lags
     assert np.array_equal(
-        result.lags,
+        result_fft.lags,
         expected_lags
     )
 
 
-def test_correlation_direct_zero_delay():
+def test_correlation_fft_prevents_circular_correlation():
     """
-    Verifica la autocorrelación de una señal.
+    PRUEBA CRÍTICA DE ZERO PADDING.
 
-    Cuando una señal se correlaciona consigo misma,
-    el máximo debe aparecer en:
+    La multiplicación directa de FFTs sin suficiente Zero Padding
+    produce correlación CIRCULAR.
 
-        lag = 0
+    Nuestro objetivo es obtener correlación LINEAL.
+
+    Para señales de longitud:
+
+        Nx
+        Ny
+
+    debe cumplirse:
+
+        L_linear = Nx + Ny - 1
+
+    Esta prueba utiliza señales asimétricas con valores no nulos
+    cerca de los extremos para que un posible wrap-around circular
+    sea fácil de detectar.
     """
 
-    # Creamos una señal conocida
+    # Señal TX deliberadamente asimétrica
     tx = Signal(
         samples=np.array([
             1.0,
-            0.5,
-            0.2
+            2.0,
+            4.0
         ]),
-        sample_rate=100.0
+        sample_rate=1000.0
     )
 
-    # Calculamos su autocorrelación
-    result = cross_correlate_direct(
+    # RX contiene información tanto al inicio como al final
+    rx = Signal(
+        samples=np.array([
+            5.0,
+            0.0,
+            0.0,
+            0.0,
+            7.0
+        ]),
+        sample_rate=1000.0
+    )
+
+    # Ejecutamos la correlación mediante FFT
+    result_fft = cross_correlate_fft(
         tx,
-        tx
+        rx
     )
 
-    # Encontramos el máximo
-    peak_idx = np.argmax(
-        np.abs(result.values)
+    # Resultado lineal de referencia
+    expected = np.correlate(
+        rx.samples,
+        tx.samples,
+        mode="full"
     )
 
-    # El máximo debe encontrarse en lag cero
-    assert result.lags[peak_idx] == 0
-
-
-def test_correlation_direct_autocorrelation_peak_value():
-    """
-    Verifica también el VALOR del máximo de autocorrelación.
-
-    Para una señal real:
-
-        r_xx[0] = sum |x[n]|^2
-
-    Es decir, el valor en lag cero corresponde a la energía
-    de la señal.
-    """
-
-    # Definimos una señal conocida
-    samples = np.array([
-        1.0,
-        0.5,
-        0.2
-    ])
-
-    tx = Signal(
-        samples=samples,
-        sample_rate=100.0
+    # La longitud de una correlación FULL debe ser:
+    #
+    # Nx + Ny - 1
+    expected_length = (
+        tx.number_of_samples
+        + rx.number_of_samples
+        - 1
     )
 
-    # Calculamos la autocorrelación
-    result = cross_correlate_direct(
-        tx,
-        tx
-    )
+    # Si accidentalmente obtuviéramos una correlación circular,
+    # normalmente la longitud o los valores no coincidirían.
+    assert len(result_fft.values) == expected_length
 
-    # Localizamos explícitamente el índice correspondiente a lag cero
-    zero_lag_idx = np.where(
-        result.lags == 0
-    )[0][0]
-
-    # Calculamos la energía teórica de la señal
-    expected_energy = np.sum(
-        np.abs(samples) ** 2
-    )
-
-    # El valor de autocorrelación en lag cero
-    # debe coincidir con la energía
-    assert np.isclose(
-        result.values[zero_lag_idx],
-        expected_energy,
+    # Verificamos el resultado completo para detectar cualquier
+    # contaminación por wrap-around.
+    assert np.allclose(
+        result_fft.values,
+        expected,
         rtol=RTOL,
         atol=ATOL
     )
 
 
-def test_correlation_direct_positive_and_negative_delay():
+def test_correlation_fft_complex_signal():
     """
-    Verifica explícitamente nuestra convención de signo.
+    Verifica el funcionamiento con señales complejas.
+
+    La correlación cruzada requiere conjugación:
+
+        r_yx[k] = sum y[n] * conj(x[n-k])
+
+    En el dominio frecuencial también es necesario respetar
+    correctamente esta propiedad.
+
+    Una implementación incorrecta podría pasar todas las pruebas
+    con señales reales y fallar únicamente con datos complejos.
+    """
+
+    # Señal transmitida compleja
+    tx_samples = np.array([
+        1.0 + 2.0j,
+        3.0 - 1.0j,
+        -2.0 + 0.5j,
+        0.5 + 3.0j
+    ], dtype=np.complex128)
+
+    # Señal recibida compleja
+    rx_samples = np.array([
+        0.5 - 1.0j,
+        1.0 + 0.25j,
+        2.0 - 2.0j,
+        -1.0 + 0.5j,
+        3.0 + 1.0j
+    ], dtype=np.complex128)
+
+    # Construimos TX
+    tx = Signal(
+        samples=tx_samples,
+        sample_rate=1000.0
+    )
+
+    # Construimos RX
+    rx = Signal(
+        samples=rx_samples,
+        sample_rate=1000.0
+    )
+
+    # Calculamos la correlación por FFT
+    result_fft = cross_correlate_fft(
+        tx,
+        rx
+    )
+
+    # Calculamos también la correlación directa
+    result_direct = cross_correlate_direct(
+        tx,
+        rx
+    )
+
+    # Referencia independiente de NumPy
+    expected_numpy = np.correlate(
+        rx_samples,
+        tx_samples,
+        mode="full"
+    )
+
+    # FFT y correlación directa deben coincidir
+    assert np.allclose(
+        result_fft.values,
+        result_direct.values,
+        rtol=RTOL,
+        atol=ATOL
+    )
+
+    # FFT también debe coincidir con NumPy
+    assert np.allclose(
+        result_fft.values,
+        expected_numpy,
+        rtol=RTOL,
+        atol=ATOL
+    )
+
+
+def test_correlation_fft_positive_and_negative_delay():
+    """
+    Verifica que el procesamiento mediante FFT conserve
+    correctamente la convención de signos.
 
     Si RX aparece tres muestras después de TX:
 
-        correlate(TX, RX) -> lag +3
+        correlate_fft(TX, RX) -> +3
 
-    Si intercambiamos el orden:
+    Si invertimos el orden:
 
-        correlate(RX, TX) -> lag -3
+        correlate_fft(RX, TX) -> -3
 
-    Esta prueba protege contra errores de signo en la implementación.
+    Esto permite detectar errores de reordenamiento después
+    de aplicar la IFFT.
     """
 
     # Señal original
@@ -363,11 +620,10 @@ def test_correlation_direct_positive_and_negative_delay():
             3.0,
             4.0
         ]),
-        sample_rate=1.0,
-        name="TX"
+        sample_rate=1000.0
     )
 
-    # TX desplazada tres posiciones
+    # Señal retardada tres muestras
     rx = Signal(
         samples=np.array([
             0.0,
@@ -378,90 +634,84 @@ def test_correlation_direct_positive_and_negative_delay():
             3.0,
             4.0
         ]),
-        sample_rate=1.0,
-        name="RX"
+        sample_rate=1000.0
     )
 
-    # Primera dirección:
-    # TX utilizada como referencia y RX como señal recibida
-    result_positive = cross_correlate_direct(
+    # Caso 1:
+    #
+    # RX aparece después de TX
+    positive_result = cross_correlate_fft(
         tx,
         rx
     )
 
-    # Buscamos el máximo
+    # Localizamos el pico
     positive_peak_idx = np.argmax(
-        np.abs(result_positive.values)
+        np.abs(positive_result.values)
     )
 
-    # Debemos obtener +3
+    # Debe ser +3
     assert (
-        result_positive.lags[positive_peak_idx]
+        positive_result.lags[positive_peak_idx]
         == 3
     )
 
-    # Invertimos el orden de las señales
-    result_negative = cross_correlate_direct(
+    # Caso 2:
+    #
+    # Intercambiamos referencia y señal recibida
+    negative_result = cross_correlate_fft(
         rx,
         tx
     )
 
-    # Buscamos nuevamente el máximo
+    # Localizamos el pico
     negative_peak_idx = np.argmax(
-        np.abs(result_negative.values)
+        np.abs(negative_result.values)
     )
 
-    # El desplazamiento debe cambiar de signo
+    # El mismo desplazamiento debe cambiar de signo
     assert (
-        result_negative.lags[negative_peak_idx]
+        negative_result.lags[negative_peak_idx]
         == -3
     )
 
 
-def test_correlation_direct_attenuated_echo():
+def test_correlation_fft_autocorrelation():
     """
-    Verifica que una atenuación de la señal recibida no altere
-    la posición temporal del máximo de correlación.
+    Verifica la autocorrelación utilizando FFT.
 
-    Modelo:
+    Para una señal correlacionada consigo misma:
 
-        RX[n] = alpha * TX[n-d]
+        r_xx[k]
 
-    donde:
+    el máximo debe encontrarse en:
 
-        alpha = 0.5
-        d = 3
+        lag = 0
+
+    y el valor en ese punto debe corresponder a la energía:
+
+        r_xx[0] = sum |x[n]|²
     """
 
-    # Señal transmitida
+    # Definimos una señal conocida
+    samples = np.array([
+        1.0,
+        0.5,
+        -0.25,
+        2.0,
+        0.75
+    ])
+
+    # Construimos la señal
     tx = Signal(
-        samples=np.array([
-            1.0,
-            2.0,
-            3.0,
-            4.0
-        ]),
+        samples=samples,
         sample_rate=1000.0
     )
 
-    # Señal recibida atenuada a la mitad y retrasada 3 muestras
-    rx = Signal(
-        samples=np.array([
-            0.0,
-            0.0,
-            0.0,
-            0.5,
-            1.0,
-            1.5,
-            2.0
-        ]),
-        sample_rate=1000.0
-    )
-
-    # Calculamos la correlación
-    result = cross_correlate_direct(
+    # Calculamos su autocorrelación mediante FFT
+    result = cross_correlate_fft(
         tx,
-        rx
+        tx
     )
 
     # Localizamos el máximo
@@ -469,198 +719,130 @@ def test_correlation_direct_attenuated_echo():
         np.abs(result.values)
     )
 
-    # La atenuación no debe cambiar el delay detectado
-    assert result.lags[peak_idx] == 3
+    # Debe aparecer en lag cero
+    assert result.lags[peak_idx] == 0
 
-    # Para una copia perfectamente alineada y atenuada:
-    #
-    # peak = alpha * energía(TX)
-    expected_peak = (
-        0.5
-        * np.sum(np.abs(tx.samples) ** 2)
+    # Calculamos la energía teórica
+    expected_energy = np.sum(
+        np.abs(samples) ** 2
     )
 
-    # Verificamos también la amplitud del máximo
+    # Localizamos explícitamente el índice correspondiente
+    # a lag = 0
+    zero_lag_idx = np.where(
+        result.lags == 0
+    )[0][0]
+
+    # Verificamos el valor del pico
     assert np.isclose(
-        result.values[peak_idx],
-        expected_peak,
+        result.values[zero_lag_idx],
+        expected_energy,
         rtol=RTOL,
         atol=ATOL
     )
 
 
-def test_correlation_direct_lags_structure():
+def test_correlation_fft_single_sample():
     """
-    Verifica que los lags cubran completamente el espacio
-    de una correlación lineal en modo 'full'.
+    Verifica el caso base más pequeño posible.
 
     Para:
 
-        Nx = longitud TX
-        Ny = longitud RX
+        TX = [2]
+        RX = [3]
 
-    el resultado debe contener:
+    la correlación contiene un único valor:
 
-        Nx + Ny - 1
+        2 * 3 = 6
 
-    valores.
+    en:
 
-    Los lags deben ir desde:
+        lag = 0
 
-        -(Nx - 1)
+    Este caso también comprueba que el sistema acepte N = 1,
+    recordando que:
 
-    hasta:
-
-        Ny - 1
+        1 = 2^0
     """
 
-    # Definimos tamaños diferentes
-    nx = 4
-    ny = 8
-
-    # Creamos las señales
+    # Señales de una única muestra
     tx = Signal(
-        samples=np.ones(nx),
-        sample_rate=1.0
+        samples=np.array([2.0]),
+        sample_rate=1000.0
     )
 
     rx = Signal(
-        samples=np.ones(ny),
-        sample_rate=1.0
+        samples=np.array([3.0]),
+        sample_rate=1000.0
     )
 
-    # Calculamos la correlación
-    result = cross_correlate_direct(
+    # Ejecutamos la correlación FFT
+    result = cross_correlate_fft(
         tx,
         rx
     )
 
-    # La longitud completa de una correlación lineal es:
-    #
-    # Nx + Ny - 1
-    expected_length = nx + ny - 1
+    # Solo debe existir un valor
+    assert len(result.values) == 1
 
-    # Verificamos tamaño de valores
-    assert len(result.values) == expected_length
-
-    # Verificamos tamaño de lags
-    assert len(result.lags) == expected_length
-
-    # Construimos explícitamente TODOS los lags esperados
-    expected_lags = np.arange(
-        -(nx - 1),
-        ny
-    )
-
-    # Verificamos la secuencia completa
+    # Solo debe existir lag cero
     assert np.array_equal(
         result.lags,
-        expected_lags
+        np.array([0])
     )
 
-
-def test_correlation_direct_complex_signal():
-    """
-    Verifica el funcionamiento con señales complejas.
-
-    Esta prueba es especialmente importante porque la definición
-    de correlación cruzada requiere utilizar el conjugado complejo
-    de la señal de referencia.
-
-    Una implementación que olvide la conjugación podría funcionar
-    correctamente con señales reales pero fallar en este caso.
-    """
-
-    # Definimos una señal TX compleja
-    tx_samples = np.array([
-        1.0 + 2.0j,
-        3.0 - 1.0j,
-        -2.0 + 0.5j,
-        0.5 + 3.0j
-    ], dtype=np.complex128)
-
-    # Definimos una señal RX compleja diferente
-    rx_samples = np.array([
-        0.5 - 1.0j,
-        1.0 + 0.25j,
-        2.0 - 2.0j,
-        -1.0 + 0.5j,
-        3.0 + 1.0j
-    ], dtype=np.complex128)
-
-    # Construimos ambas señales
-    tx = Signal(
-        samples=tx_samples,
-        sample_rate=1000.0
-    )
-
-    rx = Signal(
-        samples=rx_samples,
-        sample_rate=1000.0
-    )
-
-    # Ejecutamos nuestra implementación
-    result = cross_correlate_direct(
-        tx,
-        rx
-    )
-
-    # NumPy calcula la correlación de referencia aplicando
-    # correctamente conjugación compleja
-    expected = np.correlate(
-        rx_samples,
-        tx_samples,
-        mode="full"
-    )
-
-    # Nuestra implementación debe ser numéricamente equivalente
+    # La correlación debe ser exactamente 6,
+    # salvo pequeños errores de punto flotante.
     assert np.allclose(
         result.values,
-        expected,
+        np.array([6.0]),
         rtol=RTOL,
         atol=ATOL
     )
 
 
-def test_correlation_direct_zero_received_signal():
+def test_correlation_fft_zero_received_signal():
     """
-    Verifica el comportamiento cuando la señal recibida
-    contiene únicamente ceros.
+    Verifica el comportamiento cuando RX contiene únicamente ceros.
 
-    Matemáticamente:
+    Si:
 
-        y[n] = 0
+        RX[n] = 0
 
-    implica:
+    entonces:
 
         r_yx[k] = 0
 
-    para cualquier valor de k.
+    para todos los lags.
+
+    Debido a las operaciones FFT/IFFT podrían existir errores
+    numéricos minúsculos, por lo que usamos np.allclose().
     """
 
-    # Definimos una señal TX no nula
+    # TX no nula
     tx = Signal(
         samples=np.array([
             1.0,
             2.0,
-            3.0
+            3.0,
+            4.0
         ]),
         sample_rate=1000.0
     )
 
-    # Definimos una señal RX completamente nula
+    # RX completamente nula
     rx = Signal(
-        samples=np.zeros(8),
+        samples=np.zeros(10),
         sample_rate=1000.0
     )
 
-    # Calculamos la correlación
-    result = cross_correlate_direct(
+    # Correlación FFT
+    result = cross_correlate_fft(
         tx,
         rx
     )
 
-    # Toda la correlación debe ser cero
+    # Todos los valores deben ser numéricamente cero
     assert np.allclose(
         result.values,
         0.0,
@@ -668,12 +850,133 @@ def test_correlation_direct_zero_received_signal():
     )
 
 
-def test_correlation_direct_does_not_modify_signals():
+@pytest.mark.parametrize(
+    "nx, ny",
+    [
+        (1, 1),
+        (3, 8),
+        (8, 3),
+        (5, 5),
+        (7, 20),
+    ]
+)
+def test_correlation_fft_lags_structure(nx, ny):
     """
-    Verifica una propiedad arquitectónica importante:
+    Verifica independientemente la estructura del eje de lags.
 
-    La correlación es una operación de análisis y NO debe
-    modificar las señales TX o RX recibidas como entrada.
+    Para una correlación lineal FULL:
+
+        longitud = Nx + Ny - 1
+
+    y los lags deben ser:
+
+        -(Nx - 1), ..., Ny - 1
+    """
+
+    # Creamos señales sencillas.
+    #
+    # Los valores no son importantes para esta prueba;
+    # solamente interesa la estructura del resultado.
+    tx = Signal(
+        samples=np.ones(nx),
+        sample_rate=1000.0
+    )
+
+    rx = Signal(
+        samples=np.ones(ny),
+        sample_rate=1000.0
+    )
+
+    # Ejecutamos la correlación
+    result = cross_correlate_fft(
+        tx,
+        rx
+    )
+
+    # Calculamos la longitud esperada
+    expected_length = nx + ny - 1
+
+    # Construimos todos los lags esperados
+    expected_lags = np.arange(
+        -(nx - 1),
+        ny
+    )
+
+    # values debe poseer la longitud correcta
+    assert len(result.values) == expected_length
+
+    # lags debe poseer la misma longitud
+    assert len(result.lags) == expected_length
+
+    # El eje completo debe coincidir
+    assert np.array_equal(
+        result.lags,
+        expected_lags
+    )
+
+
+def test_correlation_fft_result_metadata():
+    """
+    Verifica que CorrelationResult conserve la información
+    necesaria para los módulos posteriores.
+
+    La versión FFT debe indicar:
+
+        method = "fft"
+
+    y conservar la frecuencia de muestreo original.
+    """
+
+    # Creamos señales compatibles
+    tx = Signal(
+        samples=np.array([
+            1.0,
+            2.0,
+            3.0
+        ]),
+        sample_rate=48000.0
+    )
+
+    rx = Signal(
+        samples=np.array([
+            0.0,
+            0.0,
+            1.0,
+            2.0,
+            3.0
+        ]),
+        sample_rate=48000.0
+    )
+
+    # Ejecutamos la correlación mediante FFT
+    result = cross_correlate_fft(
+        tx,
+        rx
+    )
+
+    # Fs debe conservarse
+    assert result.sample_rate == 48000.0
+
+    # Establecemos como contrato el identificador "fft"
+    assert result.method == "fft"
+
+
+def test_correlation_fft_does_not_modify_signals():
+    """
+    Verifica que cross_correlate_fft() no modifique las
+    señales utilizadas como entrada.
+
+    Esto es especialmente importante porque internamente
+    el algoritmo puede realizar:
+
+    - Zero Padding.
+    - Conversión a arrays complejos.
+    - Reverse.
+    - Conjugación.
+    - FFT.
+
+    Todas esas operaciones deben realizarse sobre copias
+    o nuevos arreglos.
     """
 
     # Construimos TX
@@ -681,7 +984,8 @@ def test_correlation_direct_does_not_modify_signals():
         samples=np.array([
             1.0,
             2.0,
-            3.0
+            3.0,
+            4.0
         ]),
         sample_rate=1000.0
     )
@@ -690,19 +994,22 @@ def test_correlation_direct_does_not_modify_signals():
     rx = Signal(
         samples=np.array([
             0.0,
+            0.0,
             1.0,
             2.0,
-            3.0
+            3.0,
+            4.0
         ]),
         sample_rate=1000.0
     )
 
-    # Guardamos copias independientes de las muestras
+    # Guardamos copias independientes antes de ejecutar
+    # la correlación.
     tx_original = tx.samples.copy()
     rx_original = rx.samples.copy()
 
-    # Ejecutamos la correlación
-    cross_correlate_direct(
+    # Ejecutamos la función bajo prueba
+    cross_correlate_fft(
         tx,
         rx
     )
@@ -713,74 +1020,30 @@ def test_correlation_direct_does_not_modify_signals():
         tx_original
     )
 
-    # RX debe permanecer exactamente igual
+    # RX también debe permanecer exactamente igual
     assert np.array_equal(
         rx.samples,
         rx_original
     )
 
 
-def test_correlation_direct_result_metadata():
+def test_correlation_fft_fails_on_mismatched_sample_rates():
     """
-    Verifica que CorrelationResult conserve la información
-    necesaria para los módulos posteriores de detección
-    y visualización.
+    Verifica que cross_correlate_fft() rechace señales con
+    diferentes frecuencias de muestreo.
 
-    El resultado debe conocer:
-    - La frecuencia de muestreo.
-    - El método de correlación utilizado.
-    """
-
-    # Creamos dos señales compatibles
-    tx = Signal(
-        samples=np.array([
-            1.0,
-            2.0,
-            3.0
-        ]),
-        sample_rate=48000.0
-    )
-
-    rx = Signal(
-        samples=np.array([
-            0.0,
-            0.0,
-            1.0,
-            2.0,
-            3.0
-        ]),
-        sample_rate=48000.0
-    )
-
-    # Ejecutamos la correlación directa
-    result = cross_correlate_direct(
-        tx,
-        rx
-    )
-
-    # La frecuencia de muestreo debe preservarse
-    assert result.sample_rate == 48000.0
-
-    # El resultado debe indicar claramente qué método se utilizó.
-    #
-    # Este test establece como contrato el identificador "direct".
-    assert result.method == "direct"
-
-
-def test_correlation_direct_fails_on_mismatched_sample_rates():
-    """
-    Verifica que el sistema rechace correlacionar señales
-    muestreadas a frecuencias diferentes.
-
-    Un mismo desplazamiento en muestras no representa el mismo
-    intervalo temporal cuando:
+    Si:
 
         Fs_TX != Fs_RX
 
-    Por lo tanto, sería necesario remuestrear antes de correlacionar.
+    un mismo lag en muestras no representa el mismo intervalo
+    temporal para ambas señales.
+
+    Por lo tanto, deberían remuestrearse antes de realizar
+    la correlación.
     """
 
-    # TX muestreada a 1000 Hz
+    # TX a 1000 Hz
     tx = Signal(
         samples=np.array([
             1.0,
@@ -789,7 +1052,7 @@ def test_correlation_direct_fails_on_mismatched_sample_rates():
         sample_rate=1000.0
     )
 
-    # RX muestreada a 2000 Hz
+    # RX a 2000 Hz
     rx = Signal(
         samples=np.array([
             1.0,
@@ -798,9 +1061,9 @@ def test_correlation_direct_fails_on_mismatched_sample_rates():
         sample_rate=2000.0
     )
 
-    # La función debe detectar la incompatibilidad
+    # El sistema debe detectar la incompatibilidad
     with pytest.raises(ValueError):
-        cross_correlate_direct(
+        cross_correlate_fft(
             tx,
             rx
         )
