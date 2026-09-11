@@ -1,0 +1,5 @@
+{
+    "python.analysis.extraPaths": [
+        "/home/ffuchs/Documents/radar_acustico_asm/proyecto_radar/simulacion_python/src"
+    ]
+}
