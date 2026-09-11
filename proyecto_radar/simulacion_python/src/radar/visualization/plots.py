@@ -221,3 +221,429 @@ def plot_correlation(corr_result: CorrelationResult, peak_lag: int = None, filep
     
     plt.tight_layout()
     _save_or_show(fig, filepath)
+
+def plot_ranging_distance_validation(
+    real_distances: list[float],
+    estimated_distances: list[float],
+    filepath: str = None
+):
+    """
+    Grafica la distancia real frente a la distancia estimada.
+
+    Se incluye la recta ideal y = x como referencia para observar
+    visualmente la precisión del sistema de ranging.
+    """
+
+    # Convertimos los datos a arreglos NumPy para facilitar los cálculos.
+    real_distances = np.asarray(real_distances, dtype=float)
+    estimated_distances = np.asarray(estimated_distances, dtype=float)
+
+    # Verificamos que ambas listas tengan la misma cantidad de elementos.
+    if real_distances.size != estimated_distances.size:
+        raise ValueError(
+            "real_distances y estimated_distances deben tener la misma longitud."
+        )
+
+    # Creamos la figura.
+    fig, ax = plt.subplots(figsize=(8, 4))
+
+    # Graficamos los valores obtenidos experimentalmente.
+    ax.plot(
+        real_distances,
+        estimated_distances,
+        'bo-',
+        label="Distancia estimada"
+    )
+
+    # Obtenemos los extremos para construir la recta ideal y = x.
+    min_distance = min(
+        np.min(real_distances),
+        np.min(estimated_distances)
+    )
+
+    max_distance = max(
+        np.max(real_distances),
+        np.max(estimated_distances)
+    )
+
+    # Graficamos la respuesta ideal.
+    ax.plot(
+        [min_distance, max_distance],
+        [min_distance, max_distance],
+        'k--',
+        label="Estimación ideal"
+    )
+
+    # Añadimos el error correspondiente a cada punto en milímetros.
+    for real_distance, estimated_distance in zip(
+        real_distances,
+        estimated_distances
+    ):
+        error_mm = (
+            estimated_distance - real_distance
+        ) * 1000.0
+
+        ax.annotate(
+            f"{error_mm:+.2f} mm",
+            (real_distance, estimated_distance),
+            textcoords="offset points",
+            xytext=(5, 7),
+            fontsize=8
+        )
+
+    # Configuramos título y etiquetas.
+    ax.set_title("Validación de la Estimación de Distancia")
+    ax.set_xlabel("Distancia Real (m)")
+    ax.set_ylabel("Distancia Estimada (m)")
+
+    # Activamos cuadrícula y leyenda.
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+
+    # Ajustamos los márgenes.
+    plt.tight_layout()
+
+    # Guardamos o mostramos la figura.
+    _save_or_show(fig, filepath)
+
+
+def plot_quantization_error(
+    real_distances: list[float],
+    quantization_errors_mm: list[float],
+    max_quantization_error_mm: float = None,
+    filepath: str = None
+):
+    """
+    Grafica el error introducido por la cuantización temporal.
+
+    Permite observar cómo el redondeo del retardo a muestras enteras
+    modifica ligeramente la distancia representada.
+    """
+
+    # Convertimos los datos a arreglos NumPy.
+    real_distances = np.asarray(real_distances, dtype=float)
+    quantization_errors_mm = np.asarray(
+        quantization_errors_mm,
+        dtype=float
+    )
+
+    # Verificamos que exista un error para cada distancia.
+    if real_distances.size != quantization_errors_mm.size:
+        raise ValueError(
+            "real_distances y quantization_errors_mm deben tener la misma longitud."
+        )
+
+    # Creamos la figura.
+    fig, ax = plt.subplots(figsize=(8, 4))
+
+    # Graficamos el error de cuantización para cada distancia.
+    ax.plot(
+        real_distances,
+        quantization_errors_mm,
+        'o-',
+        label="Error de cuantización"
+    )
+
+    # Marcamos el nivel de error cero como referencia.
+    ax.axhline(
+        y=0.0,
+        color='black',
+        linestyle='-',
+        linewidth=1.0
+    )
+
+    # Si se conoce el máximo teórico por redondeo,
+    # mostramos sus límites positivo y negativo.
+    if max_quantization_error_mm is not None:
+        ax.axhline(
+            y=max_quantization_error_mm,
+            color='red',
+            linestyle='--',
+            alpha=0.7,
+            label="Límite ideal por redondeo"
+        )
+
+        ax.axhline(
+            y=-max_quantization_error_mm,
+            color='red',
+            linestyle='--',
+            alpha=0.7
+        )
+
+    # Añadimos el valor numérico sobre cada punto.
+    for distance, error in zip(
+        real_distances,
+        quantization_errors_mm
+    ):
+        ax.annotate(
+            f"{error:+.3f} mm",
+            (distance, error),
+            textcoords="offset points",
+            xytext=(5, 7),
+            fontsize=8
+        )
+
+    # Configuramos título y etiquetas.
+    ax.set_title("Error de Cuantización en la Estimación de Distancia")
+    ax.set_xlabel("Distancia Real (m)")
+    ax.set_ylabel("Error de Cuantización (mm)")
+
+    # Activamos cuadrícula y leyenda.
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+
+    # Ajustamos los márgenes.
+    plt.tight_layout()
+
+    # Guardamos o mostramos.
+    _save_or_show(fig, filepath)
+
+
+def plot_thermal_compensation(
+    temperatures: list[float],
+    ideal_distances: list[float],
+    digital_distances: list[float],
+    real_distance: float,
+    filepath: str = None
+):
+    """
+    Grafica el impacto de la temperatura asumida sobre la distancia calculada.
+
+    Compara:
+    - La distancia obtenida utilizando el modelo continuo.
+    - La distancia obtenida por el pipeline digital.
+    - La distancia física real del objeto.
+    """
+
+    # Convertimos los datos a arreglos NumPy.
+    temperatures = np.asarray(temperatures, dtype=float)
+    ideal_distances = np.asarray(ideal_distances, dtype=float)
+    digital_distances = np.asarray(digital_distances, dtype=float)
+
+    # Verificamos que todas las series tengan la misma longitud.
+    if not (
+        temperatures.size
+        == ideal_distances.size
+        == digital_distances.size
+    ):
+        raise ValueError(
+            "temperatures, ideal_distances y digital_distances "
+            "deben tener la misma longitud."
+        )
+
+    # Creamos la figura.
+    fig, ax = plt.subplots(figsize=(8, 4))
+
+    # Graficamos el resultado continuo ideal.
+    ax.plot(
+        temperatures,
+        ideal_distances,
+        'bo-',
+        label="Modelo continuo"
+    )
+
+    # Graficamos el resultado producido por el sistema digital.
+    ax.plot(
+        temperatures,
+        digital_distances,
+        'rs--',
+        label="Pipeline digital"
+    )
+
+    # Marcamos la distancia física verdadera.
+    ax.axhline(
+        y=real_distance,
+        color='green',
+        linestyle=':',
+        linewidth=2,
+        label=f"Distancia real = {real_distance:.2f} m"
+    )
+
+    # Configuramos título y etiquetas.
+    ax.set_title("Impacto de la Temperatura en la Estimación de Distancia")
+    ax.set_xlabel("Temperatura Asumida (°C)")
+    ax.set_ylabel("Distancia Calculada (m)")
+
+    # Activamos cuadrícula y leyenda.
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+
+    # Ajustamos los márgenes.
+    plt.tight_layout()
+
+    # Guardamos o mostramos.
+    _save_or_show(fig, filepath)
+
+
+def plot_detection_probability(
+    snr_values_db: list[float],
+    pd_values_percent: list[float],
+    filepath: str = None
+):
+    """
+    Grafica la tasa observada de detección P_D en función de la SNR.
+
+    Permite visualizar la región donde el detector comienza a degradarse
+    debido al incremento del ruido.
+    """
+
+    # Convertimos los datos a arreglos NumPy.
+    snr_values_db = np.asarray(
+        snr_values_db,
+        dtype=float
+    )
+
+    pd_values_percent = np.asarray(
+        pd_values_percent,
+        dtype=float
+    )
+
+    # Verificamos que exista una probabilidad para cada valor de SNR.
+    if snr_values_db.size != pd_values_percent.size:
+        raise ValueError(
+            "snr_values_db y pd_values_percent deben tener la misma longitud."
+        )
+
+    # Ordenamos los puntos por SNR para que el eje X avance
+    # naturalmente desde las SNR más bajas hasta las más altas.
+    order = np.argsort(snr_values_db)
+
+    snr_sorted = snr_values_db[order]
+    pd_sorted = pd_values_percent[order]
+
+    # Creamos la figura.
+    fig, ax = plt.subplots(figsize=(8, 4))
+
+    # Graficamos la tasa observada de detección.
+    ax.plot(
+        snr_sorted,
+        pd_sorted,
+        'bo-',
+        label=r"$P_D$ observada"
+    )
+
+    # Dibujamos una referencia horizontal del 50 %.
+    # Esta línea ayuda a visualizar aproximadamente la región
+    # de transición del detector.
+    ax.axhline(
+        y=50.0,
+        color='gray',
+        linestyle='--',
+        alpha=0.7,
+        label=r"Referencia $P_D = 50\%$"
+    )
+
+    # Limitamos la escala de probabilidad entre 0 y 100 %.
+    ax.set_ylim(-5, 105)
+
+    # Configuramos título y etiquetas.
+    ax.set_title("Tasa de Detección en Función de la SNR")
+    ax.set_xlabel("SNR (dB)")
+    ax.set_ylabel(r"$P_D$ Observada (%)")
+
+    # Activamos cuadrícula.
+    ax.grid(True, alpha=0.3)
+
+    # Añadimos la leyenda.
+    ax.legend()
+
+    # Ajustamos los márgenes.
+    plt.tight_layout()
+
+    # Guardamos o mostramos.
+    _save_or_show(fig, filepath)
+
+
+def plot_false_alarm_threshold(
+    calibration_scores: list[float],
+    detection_threshold: float,
+    target_pfa: float,
+    observed_pfa: float = None,
+    filepath: str = None
+):
+    """
+    Grafica la distribución del estadístico de detección bajo H0.
+
+    H0 representa el escenario donde únicamente existe ruido y no hay eco.
+    La gráfica permite visualizar el umbral utilizado para controlar P_FA.
+    """
+
+    # Convertimos los scores a un arreglo NumPy.
+    calibration_scores = np.asarray(
+        calibration_scores,
+        dtype=float
+    )
+
+    # Verificamos que existan datos para graficar.
+    if calibration_scores.size == 0:
+        raise ValueError(
+            "calibration_scores no puede estar vacío."
+        )
+
+    # Creamos la figura.
+    fig, ax = plt.subplots(figsize=(8, 4))
+
+    # Graficamos el histograma de scores obtenidos bajo H0.
+    ax.hist(
+        calibration_scores,
+        bins=30,
+        alpha=0.75,
+        edgecolor='black',
+        label="H0: solo ruido"
+    )
+
+    # Marcamos el umbral de decisión.
+    ax.axvline(
+        x=detection_threshold,
+        color='red',
+        linestyle='--',
+        linewidth=2,
+        label=(
+            f"Umbral = {detection_threshold:.4f}"
+        )
+    )
+
+    # Construimos el texto asociado a la P_FA objetivo.
+    annotation = (
+        f"$P_{{FA}}$ objetivo = {target_pfa * 100.0:.2f}%"
+    )
+
+    # Si también se proporciona la P_FA observada,
+    # agregamos este valor al texto informativo.
+    if observed_pfa is not None:
+        annotation += (
+            f"\n$P_{{FA}}$ observada = "
+            f"{observed_pfa * 100.0:.2f}%"
+        )
+
+    # Colocamos la información en la parte superior izquierda.
+    ax.text(
+        0.03,
+        0.95,
+        annotation,
+        transform=ax.transAxes,
+        fontsize=9,
+        verticalalignment='top',
+        bbox=dict(
+            boxstyle='round',
+            facecolor='white',
+            alpha=0.8
+        )
+    )
+
+    # Configuramos título y etiquetas.
+    ax.set_title("Distribución del Estadístico de Detección bajo H0")
+    ax.set_xlabel("Score Normalizado de Correlación")
+    ax.set_ylabel("Frecuencia")
+
+    # Activamos cuadrícula.
+    ax.grid(True, alpha=0.3)
+
+    # Mostramos la leyenda.
+    ax.legend()
+
+    # Ajustamos márgenes.
+    plt.tight_layout()
+
+    # Guardamos o mostramos.
+    _save_or_show(fig, filepath)
