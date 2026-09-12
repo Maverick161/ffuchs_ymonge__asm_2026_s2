@@ -122,18 +122,28 @@ def plot_phase_spectrum(spectrum: Spectrum, filepath: str = None, zoom_freq: flo
     
     _save_or_show(fig, filepath)
 
-def plot_execution_times(ns: list[int], dft_times: list[float], fft_times: list[float], filepath: str = None):
+def plot_execution_times(
+    ns: list[int], 
+    dft_times: list[float], 
+    fft_times: list[float], 
+    filepath: str = None,
+    label_1: str = r'DFT $\mathcal{O}(N^2)$',
+    label_2: str = r'FFT $\mathcal{O}(N \log N)$',
+    title: str = "Comparativa de Rendimiento Computacional",
+    ylabel: str = "Tiempo Promedio de Ejecución (s)"
+):
     """
     Grafica la comparación de tiempos de ejecución (N vs Tiempo) en escala logarítmica.
+    Soporta personalización de etiquetas y títulos manteniendo compatibilidad con código existente.
     """
     fig, ax = plt.subplots()
     
-    ax.plot(ns, dft_times, 'ro-', label=r'DFT $\mathcal{O}(N^2)$')
-    ax.plot(ns, fft_times, 'bo-', label=r'FFT $\mathcal{O}(N \log N)$')
+    ax.plot(ns, dft_times, 'ro-', label=label_1)
+    ax.plot(ns, fft_times, 'bo-', label=label_2)
     
-    ax.set_title("Comparativa de Rendimiento Computacional")
+    ax.set_title(title)
     ax.set_xlabel("Número de Muestras (N)")
-    ax.set_ylabel("Tiempo Promedio de Ejecución (s)")
+    ax.set_ylabel(ylabel)
     
     # Escala logarítmica en Y para observar detalles en algoritmos rápidos y lentos
     ax.set_yscale('log')

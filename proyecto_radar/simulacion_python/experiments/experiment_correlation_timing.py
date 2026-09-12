@@ -48,7 +48,14 @@ def run_timing_benchmark():
     os.makedirs(out_dir, exist_ok=True)
     filepath = f"{out_dir}/benchmark_correlacion_comparativo.png"
     
-    plot_execution_times(sizes, direct_times_median, fft_times_median, filepath=filepath)
+    plot_execution_times(sizes, 
+        direct_times_median, 
+        fft_times_median, 
+        filepath=filepath,
+        label_1=r"Correlación Directa $\mathcal{O}(N^2)$",
+        label_2=r"Correlación FFT $\mathcal{O}(N \log N)$",
+        title="Comparativa de Rendimiento: Correlación Temporal vs Espectral",
+        ylabel="Tiempo Mediano de Ejecución (s)")
     
     print("\n[+] Resultados de Tiempos (Mediana en segundos):")
     print(f"{'N':<8} | {'Directa O(N^2)':<15} | {'FFT O(N log N)':<15}")
