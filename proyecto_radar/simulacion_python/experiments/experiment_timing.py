@@ -61,7 +61,7 @@ def run_timing_experiment():
     print(f"\nDatos numéricos exportados a: {csv_path}")
 
     # --- GENERAR GRÁFICA ---
-    img_path = "results/figures/timing/benchmark_comparativo.png"
+    img_path = "results/figures/timing/benchmark_timing_comparativo.png"
     plot_execution_times(N_values, dft_avg_times, fft_avg_times, filepath=img_path)
     
     print(f"Gráfica exportada a: {img_path}")

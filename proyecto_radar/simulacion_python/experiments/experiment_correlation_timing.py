@@ -46,7 +46,7 @@ def run_timing_benchmark():
         
     out_dir = "results/figures/timing"
     os.makedirs(out_dir, exist_ok=True)
-    filepath = f"{out_dir}/benchmark_comparativo.png"
+    filepath = f"{out_dir}/benchmark_correlacion_comparativo.png"
     
     plot_execution_times(sizes, direct_times_median, fft_times_median, filepath=filepath)
     

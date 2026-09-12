@@ -10,7 +10,9 @@ __pycache__/
 *.egg-info/
 
 # Resultados y datos generados localmente
-results/figures/*
 results/data/*
 results/timing/*
 !results/**/.gitkeep
+
+# md
+DOCUMENTACION_ENTREGABLES.md
