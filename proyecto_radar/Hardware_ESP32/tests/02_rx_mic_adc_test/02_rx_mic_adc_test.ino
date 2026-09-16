@@ -1,6 +1,6 @@
 #include <Arduino.h>
 
-#define MIC_ADC_PIN 34
+#define MIC_ADC_PIN 35
 
 void setup() {
   Serial.begin(115200);
