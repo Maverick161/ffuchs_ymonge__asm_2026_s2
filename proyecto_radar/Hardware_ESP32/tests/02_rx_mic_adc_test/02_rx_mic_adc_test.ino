@@ -1,18 +1,25 @@
 #include <Arduino.h>
 
-#define MIC_ADC_PIN 35
+// GPIO1 pertenece al ADC1 (ADC1_CH0), seguro y sin conflictos con el Wi-Fi[cite: 4]
+#define MIC_ADC_PIN 1
 
 void setup() {
   Serial.begin(115200);
+  
+  // Resolución de 12 bits (0 a 4095)
   analogReadResolution(12);
-  analogSetPinAttenuation(MIC_ADC_PIN, ADC_6db); // Escala lineal de 0 a ~2.2V
+  
+  // Atenuación de 11dB para permitir lecturas hasta ~3.1V (cubre perfecto tus 1.67V pico)
+  analogSetAttenuation(ADC_11db); 
 }
 
 void loop() {
   int raw_val = analogRead(MIC_ADC_PIN);
 
-  // Escala visible en Serial Plotter
+  // Formato para fijar los límites visuales en el Serial Plotter de Arduino
   Serial.print("Min:0,Max:4095,Señal:");
   Serial.println(raw_val);
+  
+  // Pequeño retardo para no saturar el puerto serie en esta prueba visual
   delay(2);
 }
