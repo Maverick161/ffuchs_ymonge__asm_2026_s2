@@ -1,28 +1,33 @@
 #include <Arduino.h>
+#include <math.h>
 
-// --- Pines de Hardware ---
-#define TONE_PIN 23        // Salida PWM hacia el TPA3110
-#define MIC_ADC_PIN 35     // Entrada analógica KY-038 (ADC1)
+// --- Pines de Hardware ESP32-S3 ---
+#define TONE_PIN 4
+#define MIC_ADC_PIN 1
 
-// --- Parámetros de Transmisión (Chirp Ultracorto) ---
-#define F_START 3000
-#define F_STOP  7000
-#define CHIRP_DURATION_US 1500       // 1.5 ms de duración
-#define NUM_CHIRP_STEPS 20
+// --- Parámetros de Transmisión (Punto dulce físico) ---
+#define F_START 2000
+#define F_STOP  8000
+#define CHIRP_DURATION_US 20000ULL   // 20 ms: El parlante reacciona y suena nítido
+#define NUM_CHIRP_STEPS 60           // Barrido suave
 
-// --- Parámetros de Muestreo (Fs = 25 kHz) ---
-#define FS 25000
-#define SAMPLE_INTERVAL_US (1000000 / FS) // 40 us por muestra
-#define RX_BUFFER_SIZE 800                // 32 ms de captura en RAM
-#define TX_SAMPLES ((CHIRP_DURATION_US * FS) / 1000000) // ~37 muestras
+// --- Parámetros de Muestreo ---
+#define FS 48000ULL
+#define TX_SAMPLES ((CHIRP_DURATION_US * FS) / 1000000ULL) // Exactamente 960 muestras
+#define RX_BUFFER_SIZE 2400          // 50 ms totales de ventana
 
-#define SPEED_OF_SOUND_M_S 343.0f
-#define CALIBRATION_OFFSET_CM 4.5f       // Resta el retardo constante (34.7 - 4.7 cm)
+#define SPEED_OF_SOUND_M_S 343.42f
+#define CALIBRATION_OFFSET_CM 17.2f
 
-// --- Umbrales de Detección ---
-#define MIN_SEARCH_INDEX 50               // Ignora todo acoplamiento por debajo de ~28 cm
-#define ENERGY_THRESHOLD 135000           // Rebaja levemente el umbral para facilitar detección a 40 cm
-#define MAX_SEARCH_INDEX 130              // Límite superior (~85 cm)
+// --- Ventana de Búsqueda Estricta (30 cm a 1 metro) ---
+// 60 muestras de retardo = ~1.66 ms = ~28 cm. Ignoramos el choque acústico directo.
+#define MIN_SEARCH_INDEX 60          
+
+// Elevamos el umbral para ignorar por completo el ruido de fondo
+#define ENERGY_THRESHOLD 1500000     
+
+// 335 muestras de retardo = ~7.0 ms = ~1.2 metros. Ignoramos el eco de las paredes.
+#define MAX_SEARCH_INDEX 335
 
 uint16_t rx_buffer[RX_BUFFER_SIZE];
 int16_t tx_ref[TX_SAMPLES];
@@ -40,15 +45,17 @@ void generarChirpReferencia() {
 
 void setup() {
   Serial.begin(115200);
+  
   analogReadResolution(12);
-  analogSetPinAttenuation(MIC_ADC_PIN, ADC_6db);
+  analogSetAttenuation(ADC_11db);
 
   ledcAttach(TONE_PIN, F_START, 8);
-  ledcWrite(TONE_PIN, 0);
+  ledcWriteTone(TONE_PIN, 0);
 
   generarChirpReferencia();
+  
   delay(1000);
-  Serial.println("=== Radar Acústico Calibrado (Test 04 Final) ===");
+  Serial.println("=== Radar Acústico: Correlación Directa (48 kHz) ===");
 }
 
 void loop() {
@@ -56,22 +63,25 @@ void loop() {
   float freq_step = (float)(F_STOP - F_START) / NUM_CHIRP_STEPS;
 
   uint32_t chirp_step_idx = 0;
-  uint32_t next_chirp_update = micros();
-  uint32_t next_sample_time = micros();
+  float sample_interval_us = 1000000.0f / FS; 
+  
+  uint32_t start_time = micros();
+  uint32_t next_chirp_update = start_time;
+  float next_sample_time = start_time;
 
   // 1. Transmisión del Chirp
   ledcWriteTone(TONE_PIN, F_START);
 
-  // 2. Muestreo sincronizado a 25 kHz
+  // 2. Muestreo de alta precisión a 48 kHz
   for (int i = 0; i < RX_BUFFER_SIZE; i++) {
-    while ((int32_t)(micros() - next_sample_time) < 0) {
-      // Espera activa precisa
+    while (micros() < (uint32_t)next_sample_time) {
+      // Polling de microsegundos
     }
-    next_sample_time += SAMPLE_INTERVAL_US;
-
+    next_sample_time += sample_interval_us;
     rx_buffer[i] = analogRead(MIC_ADC_PIN);
 
-    if (chirp_step_idx < NUM_CHIRP_STEPS && (int32_t)(micros() - next_chirp_update) >= 0) {
+    // Actualización simultánea del PWM
+    if (chirp_step_idx < NUM_CHIRP_STEPS && micros() >= next_chirp_update) {
       chirp_step_idx++;
       if (chirp_step_idx < NUM_CHIRP_STEPS) {
         uint32_t f = F_START + (uint32_t)(chirp_step_idx * freq_step);
@@ -91,7 +101,7 @@ void loop() {
   }
   int16_t dc_offset = dc_sum / RX_BUFFER_SIZE;
 
-  // 4. Correlación Cruzada (Matched Filter)
+  // 4. Correlación Cruzada Directa
   int best_index = -1;
   int64_t max_energy = 0;
 
@@ -108,18 +118,18 @@ void loop() {
     }
   }
 
-  // 5. Cálculo y filtrado de distancia
+  // 5. Cálculo monostático de distancia
   if (best_index > 0 && max_energy > ENERGY_THRESHOLD) {
     float time_delay_s = (float)best_index / (float)FS;
     float distance_raw_cm = ((time_delay_s * SPEED_OF_SOUND_M_S) / 2.0f) * 100.0f;
     float distance_cm = distance_raw_cm - CALIBRATION_OFFSET_CM;
 
-    Serial.print("Blanco -> Distancia: ");
+    Serial.print("Eco detectado -> Distancia: ");
     Serial.print(distance_cm, 1);
-    Serial.print(" cm | Pico: ");
+    Serial.print(" cm | Pico correlación: ");
     Serial.println((long)max_energy);
   } else {
-    Serial.print("Sin obstáculo en rango | Base: ");
+    Serial.print("Sin obstáculos | Energía máxima: ");
     Serial.println((long)max_energy);
   }
 

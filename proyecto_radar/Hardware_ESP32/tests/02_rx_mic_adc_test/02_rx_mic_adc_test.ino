@@ -1,6 +1,6 @@
 #include <Arduino.h>
 
-// GPIO1 pertenece al ADC1 (ADC1_CH0), seguro y sin conflictos con el Wi-Fi[cite: 4]
+// GPIO1 pertenece al ADC1 (ADC1_CH0), seguro y sin conflictos con el Wi-Fi
 #define MIC_ADC_PIN 1
 
 void setup() {
