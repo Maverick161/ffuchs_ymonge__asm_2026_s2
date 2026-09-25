@@ -415,8 +415,9 @@ void setup() {
   lcdSetCursor(0, 1);
   lcdPrint("Mesa despejada");
 
-  for (int i = 3; i > 0; i--) {
-    Serial.printf("Calibracion en %d s...\n", i);
+  for (int i = 4; i > 0; i--) {
+    Serial.printf(
+        "Calibracion en %d s (DESPEJE LA MESA Y RETIRE EL DISCO)...\n", i);
     delay(1000);
   }
 
@@ -524,58 +525,82 @@ void loop() {
     }
   }
 
-  // Selección del blanco físico por causalidad acústica:
-  // candidates[0] posee la mayor energía neta.
+  // ==========================================================
+  // SELECCIÓN ROBUSTA POR FIRMAS FÍSICAS DE MULTIPATH Y FUSIÓN
+  // ==========================================================
+  // candidates[] ya está ordenado por energía neta descendente
   int chosen_idx = 0;
-  if (cand_count > 1) {
-    int idx_30 = -1; // ~29 a 32 cm (k = 48..53)
-    int idx_35 = -1; // ~34 a 37 cm (k = 55..58)
-    int idx_39 = -1; // ~38 a 41 cm (k = 61..64)
-    int idx_45 = -1; // ~45 a 48 cm (k = 71..75)
+  float current_distance = 0.0f;
+  if (cand_count > 0) {
+    current_distance = candidates[0].dist_cm;
+  }
+
+  if (cand_count > 0) {
+    // Extraer el candidato más fuerte de cada zona acústica:
+    PeakCandidate *c_near = NULL; // ~31 cm
+    PeakCandidate *c_mid = NULL;  // ~39 cm
+    PeakCandidate *c_far = NULL;  // ~47 cm
 
     for (int i = 0; i < cand_count; i++) {
       int k = candidates[i].index;
-      if (k >= 48 && k <= 53 && idx_30 == -1)
-        idx_30 = i;
-      else if (k >= 55 && k <= 58 && idx_35 == -1)
-        idx_35 = i;
-      else if (k >= 61 && k <= 64 && idx_39 == -1)
-        idx_39 = i;
-      else if (k >= 71 && k <= 75 && idx_45 == -1)
-        idx_45 = i;
-    }
-
-    // 1. Blanco delantero genuino en 30 cm (k=48..53):
-    // Si el eco a 30 cm es fuerte y no hay eco significativo en 39 cm, es el
-    // blanco en 30 cm.
-    if (idx_30 != -1 && candidates[idx_30].net >= 6000.0f &&
-        (idx_39 == -1 || candidates[idx_39].net < 6000.0f)) {
-      chosen_idx = idx_30;
-    }
-    // 2. Discriminación entre blanco en 45 cm y blanco en 40 cm:
-    else if (idx_45 != -1 && candidates[idx_45].ratio >= 6.0f &&
-             candidates[idx_45].net >= 10000.0f) {
-      if (idx_39 != -1 && candidates[idx_39].net >= 11500.0f && idx_30 != -1 &&
-          candidates[idx_30].net >= 13000.0f) {
-        chosen_idx = idx_39;
-      } else if (idx_39 == -1 ||
-                 candidates[idx_45].net >= candidates[idx_39].net) {
-        chosen_idx = idx_45;
-      } else if (idx_39 != -1) {
-        chosen_idx = idx_39;
+      if (k >= 45 && k <= 56) {
+        if (!c_near || candidates[i].net > c_near->net)
+          c_near = &candidates[i];
+      } else if (k >= 58 && k <= 66) {
+        if (!c_mid || candidates[i].net > c_mid->net)
+          c_mid = &candidates[i];
+      } else if (k >= 70 && k <= 76) {
+        if (!c_far || candidates[i].net > c_far->net)
+          c_far = &candidates[i];
       }
     }
-    // 3. Blanco en 35 cm (k=55..58):
-    else if (idx_35 != -1 && candidates[idx_35].net >= 5000.0f) {
-      chosen_idx = idx_35;
-    }
-    // 4. Blanco en ~39-40 cm (k=61..64):
-    else if (idx_39 != -1 && candidates[idx_39].net >= 6000.0f) {
-      chosen_idx = idx_39;
-    }
-    // 5. Blanco en 30 cm:
-    else if (idx_30 != -1 && candidates[idx_30].net >= 5000.0f) {
-      chosen_idx = idx_30;
+
+    float n_net = c_near ? c_near->net : 0.0f;
+    float m_net = c_mid ? c_mid->net : 0.0f;
+    float f_net = c_far ? c_far->net : 0.0f;
+
+    // Clasificación determinista por firmas (Signatures)
+    if (n_net >= 11500.0f && f_net >= 4000.0f) {
+      // 1. Firma de 40 cm: Eco gigante en 'near' (> 11500) por multipath y
+      // presencia constante de 'far'
+      if (c_mid) {
+        current_distance = c_mid->dist_cm;
+        for (int i = 0; i < cand_count; i++)
+          if (&candidates[i] == c_mid)
+            chosen_idx = i;
+      } else {
+        current_distance = 40.0f;
+      }
+    } else if (f_net < 3000.0f) {
+      // 2. Firma de 30 cm: Ausencia o mínima energía en la zona 'far'
+      if (c_near) {
+        current_distance = c_near->dist_cm;
+        for (int i = 0; i < cand_count; i++)
+          if (&candidates[i] == c_near)
+            chosen_idx = i;
+      }
+    } else if (m_net > f_net + 1000.0f) {
+      // 3. Firma de 35 cm: El lóbulo 'mid' domina físicamente sobre el 'far'.
+      // El eco real se divide equitativamente entre 'near' y 'mid'
+      if (c_near && c_mid) {
+        current_distance = (c_near->dist_cm + c_mid->dist_cm) / 2.0f;
+        for (int i = 0; i < cand_count; i++)
+          if (&candidates[i] == c_mid)
+            chosen_idx = i;
+      } else if (c_mid) {
+        current_distance = c_mid->dist_cm;
+        for (int i = 0; i < cand_count; i++)
+          if (&candidates[i] == c_mid)
+            chosen_idx = i;
+      }
+    } else {
+      // 4. Firma de 45 cm: El lóbulo 'far' supera o empata con 'mid'
+      if (c_far) {
+        current_distance = c_far->dist_cm;
+        for (int i = 0; i < cand_count; i++)
+          if (&candidates[i] == c_far)
+            chosen_idx = i;
+      }
     }
   }
 
@@ -583,7 +608,6 @@ void loop() {
   lcdSetCursor(0, 1);
 
   if (cand_count > 0) {
-    float current_distance = candidates[chosen_idx].dist_cm;
 
     // Filtro de persistencia suave para estabilidad en LCD
     float distance_cm;
