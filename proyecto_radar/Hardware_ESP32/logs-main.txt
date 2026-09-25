@@ -1,0 +1,92 @@
+
+
+//============ Iteración 1 de pruebas :
+Buscando... Max residuo: 32.4 cm (idx: 53) | RAW: 5420 | Fondo: 3675 | NETA: 1818 | Ratio: 1.47 | CFAR_TH: 0
+  [CRESTAS]: ninguna
+Buscando... Max residuo: 39.6 cm (idx: 63) | RAW: 3711 | Fondo: 2120 | NETA: 1634 | Ratio: 1.75 | CFAR_TH: 251
+  [CRESTAS]: ninguna
+Buscando... Max residuo: 41.0 cm (idx: 65) | RAW: 5437 | Fondo: 3436 | NETA: 2070 | Ratio: 1.58 | CFAR_TH: 0
+  [CRESTAS]: 41.0cm(k=65,net=2070,rat=1.58) 
+Buscando... Max residuo: 39.6 cm (idx: 63) | RAW: 4085 | Fondo: 2120 | NETA: 2007 | Ratio: 1.93 | CFAR_TH: 247
+  [CRESTAS]: 39.6cm(k=63,net=2007,rat=1.93) 
+Buscando... Max residuo: 41.7 cm (idx: 66) | RAW: 6364 | Fondo: 3957 | NETA: 2487 | Ratio: 1.61 | CFAR_TH: 18
+  [CRESTAS]: 41.7cm(k=66,net=2487,rat=1.61) 
+Buscando... Max residuo: 39.6 cm (idx: 63) | RAW: 4462 | Fondo: 2120 | NETA: 2385 | Ratio: 2.11 | CFAR_TH: 0
+  [CRESTAS]: 39.6cm(k=63,net=2385,rat=2.11) 
+
+
+
+// A 30 cm:
+BLANCO -> Dist: 34.1 cm (idx: 55, sub: 54.97) | RAW: 16929 | Fondo: 4265 | NETA: 12749 | Ratio: 3.97 | Score: 12749
+  [CANDIDATOS]: #1(*): 33.8cm(k=55,net=12749,rat=3.97,score=12749) #2: 41.7cm(k=66,net=10189,rat=3.56,score=10189) 
+BLANCO -> Dist: 33.8 cm (idx: 55, sub: 54.62) | RAW: 16503 | Fondo: 4265 | NETA: 12323 | Ratio: 3.87 | Score: 12323
+  [CANDIDATOS]: #1(*): 33.6cm(k=55,net=12323,rat=3.87,score=12323) #2: 42.1cm(k=67,net=9920,rat=3.25,score=9920) 
+BLANCO -> Dist: 33.8 cm (idx: 55, sub: 54.94) | RAW: 17066 | Fondo: 4265 | NETA: 12886 | Ratio: 4.00 | Score: 12886
+  [CANDIDATOS]: #1(*): 33.8cm(k=55,net=12886,rat=4.00,score=12886) #2: 42.0cm(k=66,net=10469,rat=3.63,score=10469) 
+BLANCO -> Dist: 33.7 cm (idx: 55, sub: 54.61) | RAW: 15246 | Fondo: 4265 | NETA: 11066 | Ratio: 3.57 | Score: 11066
+  [CANDIDATOS]: #1(*): 33.6cm(k=55,net=11066,rat=3.57,score=11066) #2: 42.1cm(k=66,net=9880,rat=3.48,score=9880) 
+BLANCO -> Dist: 33.5 cm (idx: 54, sub: 54.35) | RAW: 17561 | Fondo: 3984 | NETA: 13656 | Ratio: 4.41 | Score: 13656
+  [CANDIDATOS]: #1(*): 33.4cm(k=54,net=13656,rat=4.41,score=13656) #2: 42.1cm(k=67,net=12613,rat=3.86,score=12613) 
+BLANCO -> Dist: 33.4 cm (idx: 54, sub: 54.17) | RAW: 14556 | Fondo: 3984 | NETA: 10651 | Ratio: 3.65 | Score: 10651
+  [CANDIDATOS]: #1(*): 33.3cm(k=54,net=10651,rat=3.65,score=10651) #2: 42.2cm(k=67,net=9818,rat=3.22,score=9818) 
+BLANCO -> Dist: 33.8 cm (idx: 55, sub: 55.45) | RAW: 16694 | Fondo: 4265 | NETA: 12514 | Ratio: 3.91 | Score: 12514
+  [CANDIDATOS]: #1(*): 34.2cm(k=55,net=12514,rat=3.91,score=12514) #2: 42.4cm(k=67,net=10283,rat=3.33,score=10283) 
+
+
+// A 35 cm:
+BLANCO -> Dist: 32.7 cm (idx: 53, sub: 53.00) | RAW: 14443 | Fondo: 3675 | NETA: 10841 | Ratio: 3.93 | Score: 10841
+  [CANDIDATOS]: #1(*): 32.4cm(k=53,net=10841,rat=3.93,score=10841) #2: 40.3cm(k=64,net=10195,rat=4.87,score=10195) 
+BLANCO -> Dist: 32.6 cm (idx: 53, sub: 53.09) | RAW: 13350 | Fondo: 3675 | NETA: 9749 | Ratio: 3.63 | Score: 9749
+  [CANDIDATOS]: #1(*): 32.5cm(k=53,net=9749,rat=3.63,score=9749) #2: 40.4cm(k=64,net=9577,rat=4.63,score=9577) 
+BLANCO -> Dist: 32.6 cm (idx: 53, sub: 53.18) | RAW: 15660 | Fondo: 3675 | NETA: 12059 | Ratio: 4.26 | Score: 12059
+  [CANDIDATOS]: #1(*): 32.5cm(k=53,net=12059,rat=4.26,score=12059) #2: 40.5cm(k=64,net=11690,rat=5.44,score=11690) 
+BLANCO -> Dist: 33.2 cm (idx: 55, sub: 54.68) | RAW: 14462 | Fondo: 4265 | NETA: 10282 | Ratio: 3.39 | Score: 10282
+  [CANDIDATOS]: #1: 41.6cm(k=66,net=11603,rat=3.91,score=11603) #2(*): 33.6cm(k=55,net=10282,rat=3.39,score=10282) 
+BLANCO -> Dist: 33.2 cm (idx: 54, sub: 53.99) | RAW: 13672 | Fondo: 3984 | NETA: 9767 | Ratio: 3.43 | Score: 9767
+  [CANDIDATOS]: #1: 40.4cm(k=64,net=11194,rat=5.25,score=11194) #2(*): 33.1cm(k=54,net=9767,rat=3.43,score=9767) 
+BLANCO -> Dist: 32.8 cm (idx: 53, sub: 53.26) | RAW: 14468 | Fondo: 3675 | NETA: 10866 | Ratio: 3.94 | Score: 10866
+  [CANDIDATOS]: #1: 41.0cm(k=65,net=10872,rat=4.14,score=10872) #2(*): 32.6cm(k=53,net=10866,rat=3.94,score=10866) 
+BLANCO -> Dist: 33.1 cm (idx: 54, sub: 54.30) | RAW: 14212 | Fondo: 3984 | NETA: 10308 | Ratio: 3.57 | Score: 10308
+  [CANDIDATOS]: #1: 40.6cm(k=64,net=11175,rat=5.24,score=11175) #2(*): 33.3cm(k=54,net=10308,rat=3.57,score=10308) 
+BLANCO -> Dist: 33.3 cm (idx: 54, sub: 54.41) | RAW: 12778 | Fondo: 3984 | NETA: 8873 | Ratio: 3.21 | Score: 8873
+  [CANDIDATOS]: #1: 40.7cm(k=65,net=10412,rat=4.01,score=10412) #2(*): 33.4cm(k=54,net=8873,rat=3.21,score=8873) 
+
+
+
+// A 40 cm:
+BLANCO -> Dist: 40.5 cm (idx: 64, sub: 63.87) | RAW: 15051 | Fondo: 2621 | NETA: 12482 | Ratio: 5.74 | Score: 12482
+  [CANDIDATOS]: #1: 32.8cm(k=53,net=15211,rat=5.12,score=15211) #2(*): 40.2cm(k=64,net=12482,rat=5.74,score=12482) #3: 47.4cm(k=74,net=10409,rat=5.54,score=10409) 
+BLANCO -> Dist: 40.2 cm (idx: 64, sub: 63.53) | RAW: 15283 | Fondo: 2621 | NETA: 12714 | Ratio: 5.83 | Score: 12714
+  [CANDIDATOS]: #1: 32.5cm(k=53,net=15355,rat=5.16,score=15355) #2(*): 40.0cm(k=64,net=12714,rat=5.83,score=12714) #3: 47.5cm(k=74,net=10835,rat=5.73,score=10835) 
+BLANCO -> Dist: 40.3 cm (idx: 64, sub: 64.05) | RAW: 15832 | Fondo: 2621 | NETA: 13264 | Ratio: 6.04 | Score: 13264
+  [CANDIDATOS]: #1: 32.4cm(k=53,net=15542,rat=5.21,score=15542) #2(*): 40.3cm(k=64,net=13264,rat=6.04,score=13264) #3: 47.4cm(k=74,net=12730,rat=6.55,score=12730) 
+BLANCO -> Dist: 40.3 cm (idx: 64, sub: 64.14) | RAW: 13549 | Fondo: 2621 | NETA: 10980 | Ratio: 5.17 | Score: 10980
+  [CANDIDATOS]: #1: 32.3cm(k=53,net=13459,rat=4.64,score=13459) #2: 47.4cm(k=74,net=12081,rat=6.27,score=12081) #3(*): 40.4cm(k=64,net=10980,rat=5.17,score=10980) 
+BLANCO -> Dist: 40.4 cm (idx: 64, sub: 64.19) | RAW: 14966 | Fondo: 2621 | NETA: 12397 | Ratio: 5.71 | Score: 12397
+  [CANDIDATOS]: #1: 32.4cm(k=53,net=13974,rat=4.78,score=13974) #2(*): 40.4cm(k=64,net=12397,rat=5.71,score=12397) #3: 47.4cm(k=74,net=10492,rat=5.57,score=10492) 
+BLANCO -> Dist: 40.4 cm (idx: 64, sub: 64.07) | RAW: 14556 | Fondo: 2621 | NETA: 11987 | Ratio: 5.55 | Score: 11987
+  [CANDIDATOS]: #1: 32.4cm(k=53,net=13854,rat=4.75,score=13854) #2(*): 40.3cm(k=64,net=11987,rat=5.55,score=11987) #3: 47.4cm(k=74,net=11326,rat=5.94,score=11326) 
+BLANCO -> Dist: 40.5 cm (idx: 64, sub: 64.41) | RAW: 13383 | Fondo: 2621 | NETA: 10814 | Ratio: 5.11 | Score: 10814
+  [CANDIDATOS]: #1: 32.3cm(k=53,net=12035,rat=4.25,score=12035) #2(*): 40.6cm(k=64,net=10814,rat=5.11,score=10814) #3: 47.6cm(k=74,net=9030,rat=4.93,score=9030) 
+BLANCO -> Dist: 40.3 cm (idx: 64, sub: 63.83) | RAW: 13620 | Fondo: 2621 | NETA: 11051 | Ratio: 5.20 | Score: 11051
+  [CANDIDATOS]: #1: 32.6cm(k=53,net=13011,rat=4.52,score=13011) #2(*): 40.2cm(k=64,net=11051,rat=5.20,score=11051) #3: 47.5cm(k=74,net=9615,rat=5.19,score=9615) 
+
+
+// A 45 cm:
+BLANCO -> Dist: 47.0 cm (idx: 74, sub: 73.51) | RAW: 11338 | Fondo: 2283 | NETA: 9100 | Ratio: 4.97 | Score: 9100
+  [CANDIDATOS]: #1(*): 47.1cm(k=74,net=9100,rat=4.97,score=9100) #2: 31.4cm(k=52,net=9067,rat=3.36,score=9067) #3: 39.5cm(k=63,net=8604,rat=5.04,score=8604) 
+BLANCO -> Dist: 47.0 cm (idx: 73, sub: 73.31) | RAW: 8903 | Fondo: 2277 | NETA: 6672 | Ratio: 3.91 | Score: 6672
+  [CANDIDATOS]: #1: 31.4cm(k=52,net=8362,rat=3.18,score=8362) #2: 39.4cm(k=63,net=7223,rat=4.39,score=7223) #3(*): 47.0cm(k=73,net=6672,rat=3.91,score=6672) 
+BLANCO -> Dist: 47.0 cm (idx: 73, sub: 73.45) | RAW: 12187 | Fondo: 2277 | NETA: 9956 | Ratio: 5.35 | Score: 9956
+  [CANDIDATOS]: #1(*): 47.1cm(k=73,net=9956,rat=5.35,score=9956) #2: 31.7cm(k=52,net=9312,rat=3.43,score=9312) #3: 39.4cm(k=63,net=8304,rat=4.90,score=8304) 
+BLANCO -> Dist: 47.1 cm (idx: 74, sub: 73.65) | RAW: 11763 | Fondo: 2283 | NETA: 9525 | Ratio: 5.15 | Score: 9525
+  [CANDIDATOS]: #1(*): 47.2cm(k=74,net=9525,rat=5.15,score=9525) #2: 31.5cm(k=52,net=9105,rat=3.37,score=9105) #3: 39.4cm(k=63,net=7246,rat=4.40,score=7246) 
+BLANCO -> Dist: 47.0 cm (idx: 73, sub: 73.36) | RAW: 10210 | Fondo: 2277 | NETA: 7979 | Ratio: 4.48 | Score: 7979
+  [CANDIDATOS]: #1: 39.3cm(k=63,net=8679,rat=5.07,score=8679) #2: 31.4cm(k=52,net=8661,rat=3.26,score=8661) #3(*): 47.0cm(k=73,net=7979,rat=4.48,score=7979) 
+BLANCO -> Dist: 46.9 cm (idx: 73, sub: 73.09) | RAW: 11915 | Fondo: 2277 | NETA: 9684 | Ratio: 5.23 | Score: 9684
+  [CANDIDATOS]: #1(*): 46.8cm(k=73,net=9684,rat=5.23,score=9684) #2: 31.6cm(k=52,net=8826,rat=3.30,score=8826) #3: 39.3cm(k=63,net=8790,rat=5.13,score=8790) 
+BLANCO -> Dist: 47.0 cm (idx: 73, sub: 73.47) | RAW: 9994 | Fondo: 2277 | NETA: 7763 | Ratio: 4.39 | Score: 7763
+  [CANDIDATOS]: #1: 39.4cm(k=63,net=7807,rat=4.66,score=7807) #2(*): 47.1cm(k=73,net=7763,rat=4.39,score=7763) #3: 31.5cm(k=52,net=7517,rat=2.95,score=7517) 
+BLANCO -> Dist: 46.9 cm (idx: 73, sub: 73.12) | RAW: 9687 | Fondo: 2277 | NETA: 7456 | Ratio: 4.25 | Score: 7456
+  [CANDIDATOS]: #1: 31.6cm(k=52,net=8402,rat=3.19,score=8402) #2: 39.3cm(k=63,net=8151,rat=4.83,score=8151) #3(*): 46.8cm(k=73,net=7456,rat=4.25,score=7456) 
+
