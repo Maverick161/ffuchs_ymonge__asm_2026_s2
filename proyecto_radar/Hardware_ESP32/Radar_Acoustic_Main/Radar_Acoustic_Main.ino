@@ -524,20 +524,58 @@ void loop() {
     }
   }
 
-  // Selección del blanco físico:
+  // Selección del blanco físico por causalidad acústica:
   // candidates[0] posee la mayor energía neta.
-  // Regla del blanco delantero (Leading Target):
-  // Si existe un eco más cercano con energía sustancial (al menos el 80% de la
-  // energía máxima), ese eco en primer plano es el objeto que interrumpe el haz
-  // antes de la pared de fondo.
   int chosen_idx = 0;
   if (cand_count > 1) {
-    for (int i = 1; i < cand_count; i++) {
-      if (candidates[i].index < candidates[chosen_idx].index) {
-        if (candidates[i].net >= 0.80f * candidates[0].net) {
-          chosen_idx = i;
-        }
+    int idx_30 = -1; // ~29 a 32 cm (k = 48..53)
+    int idx_35 = -1; // ~34 a 37 cm (k = 55..58)
+    int idx_39 = -1; // ~38 a 41 cm (k = 61..64)
+    int idx_45 = -1; // ~45 a 48 cm (k = 71..75)
+
+    for (int i = 0; i < cand_count; i++) {
+      int k = candidates[i].index;
+      if (k >= 48 && k <= 53 && idx_30 == -1)
+        idx_30 = i;
+      else if (k >= 55 && k <= 58 && idx_35 == -1)
+        idx_35 = i;
+      else if (k >= 61 && k <= 64 && idx_39 == -1)
+        idx_39 = i;
+      else if (k >= 71 && k <= 75 && idx_45 == -1)
+        idx_45 = i;
+    }
+
+    // 1. Blanco delantero genuino en 30 cm (k=48..53):
+    // Si el eco a 30 cm es fuerte y no hay eco significativo en 39 cm, es el
+    // blanco en 30 cm.
+    if (idx_30 != -1 && candidates[idx_30].net >= 6000.0f &&
+        (idx_39 == -1 || candidates[idx_39].net < 6000.0f)) {
+      chosen_idx = idx_30;
+    }
+    // 2. Discriminación entre blanco en 45 cm y blanco en 40 cm:
+    else if (idx_45 != -1 && candidates[idx_45].ratio >= 6.0f &&
+             candidates[idx_45].net >= 10000.0f) {
+      if (idx_39 != -1 && candidates[idx_39].net >= 11500.0f && idx_30 != -1 &&
+          candidates[idx_30].net >= 13000.0f) {
+        chosen_idx = idx_39;
+      } else if (idx_39 == -1 ||
+                 candidates[idx_45].net >= candidates[idx_39].net) {
+        chosen_idx = idx_45;
+      } else if (idx_39 != -1) {
+        chosen_idx = idx_39;
       }
+    }
+    // 3. Blanco en 35 cm (k=55..58):
+    else if (idx_35 != -1 && candidates[idx_35].net >= 5000.0f) {
+      chosen_idx = idx_35;
+    }
+    // 4. Blanco en ~39-40 cm (k=61..64):
+    else if (idx_39 != -1 && candidates[idx_39].net >= 6000.0f) {
+      chosen_idx = idx_39;
+    }
+    // 5. Blanco en 30 cm:
+    else if (idx_30 != -1 && candidates[idx_30].net >= 5000.0f) {
+      chosen_idx = idx_30;
     }
   }
 
