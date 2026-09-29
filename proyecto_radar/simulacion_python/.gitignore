@@ -1,0 +1,18 @@
+# Entornos virtuales
+venv/
+env/
+
+# Archivos compilados y temporales
+__pycache__/
+*.py[cod]
+*.class
+.pytest_cache/
+*.egg-info/
+
+# Resultados y datos generados localmente
+results/data/*
+results/timing/*
+!results/**/.gitkeep
+
+# md
+DOCUMENTACION_ENTREGABLES.md
