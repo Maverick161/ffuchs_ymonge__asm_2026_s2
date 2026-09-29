@@ -2,7 +2,7 @@
 
 Proyecto de Procesamiento Digital de Señales para estimar distancias mediante una señal acústica conocida, simulación de ecos, correlación y análisis espectral.
 
-El proyecto está implementado en Python y compara una DFT directa con una FFT radix-2 propia. También estudia aliasing, fuga espectral, zero-padding, ruido, detección de ecos y estimación de distancia.
+El proyecto abarca tanto el modelado matemático y simulación en Python (comparando DFT directa con una FFT radix-2 propia, aliasing, fuga espectral, zero-padding, ruido y estimación de tiempo de vuelo ToF) como su implementación física en tiempo real sobre un microcontrolador ESP32-S3 con hardware dedicado de transmisión, preamplificación de bajo ruido y desacoplo acústico.
 
 ## Requisitos
 
@@ -141,150 +141,70 @@ $$
 - `proyecto_radar/simulacion_python/experiments/results/figures/`: figuras generadas por los experimentos.
 - `proyecto_radar/simulacion_python/experiments/results/data/`: datos CSV de escenarios y mediciones.
 - `proyecto_radar/simulacion_python/experiments/results/timing/`: resultados de benchmarks de DFT y FFT.
-- `proyecto_radar/simulacion_python/DOCUMENTACION_ENTREGABLES.md`: explicación matemática y técnica organizada según los entregables del proyecto.
+- [proyecto_radar/Hardware_ESP32/configuracion-hardware.MD](proyecto_radar/Hardware_ESP32/configuracion-hardware.MD): especificación técnica completa, esquemáticos y diseño del circuito de hardware.
+
+## Montaje Experimental y Arquitectura de Hardware (ESP32-S3)
+
+Además del modelado y la simulación numérica, el proyecto implementa un radar acústico monostático funcional en tiempo real sobre una placa **ESP32-S3 (Dual-Core LX7 a 240 MHz)**, validado experimentalmente sobre banco de pruebas.
+
+### Resumen del Montaje Físico y Electrónico
+
+* **Arquitectura de Procesamiento Concurrente (Dual-Core):**
+  * **Core 0 (TX):** Síntesis de precisión de un pulso lineal modulado en frecuencia (*chirp* LFM de 100 pasos discretos, duración de $50\text{ ms}$, barrido de $2\text{ kHz}$ a $8\text{ kHz}$) modulado por PWM (`GPIO 4`).
+  * **Core 1 (RX y DSP):** Adquisición analógica a $F_s = 24\text{ kHz}$ ($2400\text{ muestras}$ en $100\text{ ms}$, cumpliendo con creces Nyquist: $F_s/2 = 12\text{ kHz} > 8\text{ kHz}$) en `GPIO 1`, cálculo de correlación cruzada espectral mediante una **FFT Radix-2 de 4096 puntos**, extracción de envolvente analítica por Transformada de Hilbert y mitigación de ecos parásitos por **sustracción de perfil de fondo estático calibrado**.
+* **Etapa de Potencia y Transmisión (TX):**
+  * Elevación de potencia mediante un amplificador digital clase D **TPA3110** (alimentado a 12 V) acoplado a un altavoz/parlante de **8 $\Omega$**.
+* **Etapa de Recepción y Acondicionamiento (RX):**
+  * Captura de onda acústica mediante una cápsula de micrófono electret (**KY-038**).
+  * **Preamplificador discreto de bajo ruido con transistor BJT BC549:** Configuración en emisor común con ganancia de voltaje $A_v \approx 40\text{ dB}$ (factor $\approx 100$), polarizado a 3.3 V y desacoplado para centrar el nivel DC en el rango óptimo del convertidor analógico-digital (ADC de 12 bits en `GPIO 1`).
+* **Disposición Mecánica y Desacoplo Acústico:**
+  * **Alineación Vertical:** El micrófono se encuentra ubicado en el mismo eje horizontal ($X$) y a una altura de $7\text{ a }8\text{ cm}$ directamente sobre el parlante ($Y$).
+  * **Aislamiento Mecánico:** Montaje del micrófono sobre una cama de espuma de poliuretano de alta densidad para suprimir la propagación estructural de vibraciones desde la membrana del altavoz a través del chasis.
+  * **Visera Anti-Acople Frontal:** Bafle de espuma de $2\text{ cm}$ de grosor por $6\text{ cm}$ de largo que sobresale hacia el frente entre el altavoz y el micrófono, atenuando drásticamente la onda directa (*crosstalk* acústico).
+  * **Inclinación del Chasis:** Inclinación frontal hacia arriba de $\approx 0.8\text{ cm}$ para orientar el lóbulo acústico principal y evitar reflexiones rasantes parásitas sobre la mesa a distancias cortas ($30\text{ cm}$ a $45\text{ cm}$).
+* **Blanco Reflector de Calibración:**
+  * Disco plano de **36 cm de diámetro recubierto de papel de aluminio** (coeficiente de reflexión acústica $R \approx 1$), verificado a distancias reales de 30 cm, 35 cm, 40 cm y 45 cm.
+* **Interfaz de Usuario (HMI):**
+  * Pantalla LCD 16x2 vía bus I2C (**PCF8574** en `GPIO 8` SDA y `GPIO 9` SCL, dirección `0x3F`), desplegando en tiempo real la distancia estimada y el estado de adquisición.
+
+### Explicación Técnica Detallada
+Para consultar los esquemáticos circuitales del preamplificador en LTspice, valores exactos de polarización, componentes y detalles de calibración física, consulte la documentación técnica:  
+👉 [proyecto_radar/Hardware_ESP32/configuracion-hardware.MD](proyecto_radar/Hardware_ESP32/configuracion-hardware.MD)
 
 ## Estructura del proyecto
 
-```
-ffuchs_ymonge__asm_2026_s2
-├─ .pytest_cache
-│  ├─ CACHEDIR.TAG
-│  ├─ README.md
-│  └─ v
-│     └─ cache
-│        └─ nodeids
-├─ proyecto_radar
-│  └─ simulacion_python
-│     ├─ .pytest_cache
-│     │  ├─ CACHEDIR.TAG
-│     │  ├─ README.md
-│     │  └─ v
-│     │     └─ cache
-│     │        ├─ lastfailed
-│     │        └─ nodeids
-│     ├─ DOCUMENTACION_ENTREGABLES.md
-│     ├─ experiments
-│     │  ├─ experiment_correlation_timing.py
-│     │  ├─ experiment_echo_effects.py
-│     │  ├─ experiment_echo_generation.py
-│     │  ├─ experiment_effects.py
-│     │  ├─ experiment_ranging.py
-│     │  ├─ experiment_timing.py
-│     │  └─ results
-│     │     ├─ data
-│     │     │  └─ echo_scenario.csv
-│     │     ├─ figures
-│     │     │  ├─ aliasing
-│     │     │  │  └─ espectro_aliasing_700hz.png
-│     │     │  ├─ correlation
-│     │     │  │  ├─ deteccion_pico_limpio.png
-│     │     │  │  ├─ deteccion_pico_ruido_fuerte.png
-│     │     │  │  └─ deteccion_pico_ruido_moderado.png
-│     │     │  ├─ echoes
-│     │     │  │  ├─ recibida_limpia.png
-│     │     │  │  ├─ recibida_ruido_fuerte.png
-│     │     │  │  ├─ recibida_ruido_moderado.png
-│     │     │  │  └─ tx_chirp_zoom_5ms.png
-│     │     │  ├─ leakage
-│     │     │  │  ├─ leakage_01_perfect_50hz.png
-│     │     │  │  └─ leakage_02_leaking_50_5hz.png
-│     │     │  ├─ ranging
-│     │     │  │  ├─ distance_validation.png
-│     │     │  │  ├─ false_alarm_threshold.png
-│     │     │  │  ├─ pd_vs_snr.png
-│     │     │  │  ├─ quantization_error.png
-│     │     │  │  └─ thermal_compensation.png
-│     │     │  ├─ timing
-│     │     │  │  ├─ benchmark_correlacion_comparativo.png
-│     │     │  │  └─ benchmark_timing_comparativo.png
-│     │     │  └─ zero_padding
-│     │     │     ├─ zp_01_corta_N64.png
-│     │     │     └─ zp_02_rellena_N1024.png
-│     │     └─ timing
-│     │        └─ dft_fft_benchmark.csv
-│     ├─ pyproject.toml
-│     ├─ requirements.txt
-│     ├─ results
-│     │  ├─ data
-│     │  ├─ figures
-│     │  └─ timing
-│     ├─ src
-│     │  ├─ radar
-│     │  │  ├─ analysis
-│     │  │  │  ├─ correlation.py
-│     │  │  │  ├─ detection.py
-│     │  │  │  ├─ ranging.py
-│     │  │  │  ├─ spectrum.py
-│     │  │  │  ├─ timing.py
-│     │  │  │  ├─ __init__.py
-│     │  │  │  └─ __pycache__
-│     │  │  │     ├─ correlation.cpython-313.pyc
-│     │  │  │     ├─ detection.cpython-313.pyc
-│     │  │  │     ├─ ranging.cpython-313.pyc
-│     │  │  │     ├─ spectrum.cpython-313.pyc
-│     │  │  │     ├─ timing.cpython-313.pyc
-│     │  │  │     └─ __init__.cpython-313.pyc
-│     │  │  ├─ signals
-│     │  │  │  ├─ generators.py
-│     │  │  │  ├─ signal.py
-│     │  │  │  ├─ __init__.py
-│     │  │  │  └─ __pycache__
-│     │  │  │     ├─ generators.cpython-313.pyc
-│     │  │  │     ├─ signal.cpython-313.pyc
-│     │  │  │     └─ __init__.cpython-313.pyc
-│     │  │  ├─ simulation
-│     │  │  │  ├─ echoes.py
-│     │  │  │  ├─ __init__.py
-│     │  │  │  └─ __pycache__
-│     │  │  │     ├─ echoes.cpython-313.pyc
-│     │  │  │     └─ __init__.cpython-313.pyc
-│     │  │  ├─ transforms
-│     │  │  │  ├─ dft.py
-│     │  │  │  ├─ fft.py
-│     │  │  │  ├─ ifft.py
-│     │  │  │  ├─ __init__.py
-│     │  │  │  └─ __pycache__
-│     │  │  │     ├─ dft.cpython-313.pyc
-│     │  │  │     ├─ fft.cpython-313.pyc
-│     │  │  │     ├─ ifft.cpython-313.pyc
-│     │  │  │     └─ __init__.cpython-313.pyc
-│     │  │  ├─ utils
-│     │  │  │  ├─ validation.py
-│     │  │  │  ├─ __init__.py
-│     │  │  │  └─ __pycache__
-│     │  │  │     ├─ validation.cpython-313.pyc
-│     │  │  │     └─ __init__.cpython-313.pyc
-│     │  │  ├─ visualization
-│     │  │  │  ├─ plots.py
-│     │  │  │  ├─ __init__.py
-│     │  │  │  └─ __pycache__
-│     │  │  │     ├─ plots.cpython-313.pyc
-│     │  │  │     └─ __init__.cpython-313.pyc
-│     │  │  ├─ __init__.py
-│     │  │  └─ __pycache__
-│     │  │     └─ __init__.cpython-313.pyc
-│     │  └─ radar.egg-info
-│     │     ├─ dependency_links.txt
-│     │     ├─ PKG-INFO
-│     │     ├─ requires.txt
-│     │     ├─ SOURCES.txt
-│     │     └─ top_level.txt
-│     └─ tests
-│        ├─ test_correlation.py
-│        ├─ test_detection.py
-│        ├─ test_echoes.py
-│        ├─ test_ranging.py
-│        ├─ test_signal.py
-│        ├─ test_spectrum.py
-│        ├─ test_transforms.py
-│        └─ __pycache__
-│           ├─ test_correlation.cpython-313-pytest-9.1.1.pyc
-│           ├─ test_detection.cpython-313-pytest-9.1.1.pyc
-│           ├─ test_echoes.cpython-313-pytest-9.1.1.pyc
-│           ├─ test_ranging.cpython-313-pytest-9.1.1.pyc
-│           ├─ test_signal.cpython-313-pytest-9.1.1.pyc
-│           ├─ test_spectrum.cpython-313-pytest-9.1.1.pyc
-│           └─ test_transforms.cpython-313-pytest-9.1.1.pyc
-└─ README.md
-
+```text
+ffuchs_ymonge__asm_2026_s2/
+├── README.md
+└── proyecto_radar/
+    ├── Hardware_ESP32/
+    │   ├── Radar_Acoustic_Main/
+    │   │   └── Radar_Acoustic_Main.ino       # Firmware principal del radar en ESP32-S3
+    │   ├── configuracion-hardware.MD          # Especificación y montaje físico/electrónico
+    │   ├── image.png                          # Diagrama esquemático del circuito preamplificador
+    │   └── tests/                             # Pruebas unitarias de hardware
+    │       ├── 01_tx_chirp_test/              # Síntesis y emisión del chirp TX
+    │       ├── 02_rx_mic_adc_test/            # Muestreo y lectura ADC del micrófono
+    │       ├── 03_loopback_tx_rx_test/        # Prueba de loopback continuo TX -> RX
+    │       ├── 04_matched_filter_radar_test/  # Prototipo inicial de filtro adaptado
+    │       └── 05_i2c_lcd_test.ino/           # Verificación de pantalla LCD 16x2 I2C
+    └── simulacion_python/
+        ├── pyproject.toml                     # Configuración del paquete Python
+        ├── requirements.txt                   # Dependencias del proyecto
+        ├── experiments/                       # Scripts de experimentación y benchmarks
+        │   ├── experiment_timing.py           # Comparación computacional DFT vs FFT
+        │   ├── experiment_effects.py          # Aliasing, fuga espectral y zero-padding
+        │   ├── experiment_echo_generation.py  # Síntesis de escenarios de ecos acústicos
+        │   ├── experiment_echo_effects.py     # Detección bajo diversos niveles de SNR
+        │   ├── experiment_correlation_timing.py # Benchmarks de correlación temporal vs FFT
+        │   ├── experiment_ranging.py          # Estimación de distancia, ToF y métricas
+        │   └── results/                       # Figuras generadas (PNG) y datos (CSV)
+        ├── src/radar/                         # Paquete modular DSP en Python
+        │   ├── analysis/                      # Correlación, picos, espectro y ranging ToF
+        │   ├── signals/                       # Generadores de señal y chirp LFM
+        │   ├── simulation/                    # Modelado del canal acústico y ecos
+        │   ├── transforms/                    # Implementación de DFT directa y FFT/IFFT radix-2
+        │   ├── utils/                         # Validación y zero-padding
+        │   └── visualization/                 # Gráficas de resultados
+        └── tests/                             # Pruebas unitarias automatizadas (pytest)
 ```
