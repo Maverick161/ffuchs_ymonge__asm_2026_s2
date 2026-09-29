@@ -33,28 +33,7 @@ Para garantizar un rango dinámico óptimo en el ADC del ESP32-S3 sin pérdida d
   * **Ganancia en corriente alterna (AC):** Fijada por la relación $A_v \approx -R_c / R_{e1} = -4700 / 47 \approx -100$ ($\approx 40\text{ dB}$ de amplificación de voltaje en la banda del chirp).
 * **Filtrado y Desacople de Alimentación:** Capacitores $C_3 = 100\ \mu\text{F}$ (electrolítico) y $C_2 = 0.1\ \mu\text{F}$ (cerámico) en paralelo entre la línea de 3.3 V y GND para suprimir rizado y ruido de conmutación del microcontrolador.
 
-```
-       +3.3V
-         |
-    +----+-----------+---------------+
-    |    |           |               |
-   [C3] [C2]       [Rb2]           [Rc]
-   100u  0.1u       68k            4.7k
-    |    |           |               |
-    |    |           +-------+       +-----> GPIO 1 (ADC ESP32)
-    |    |           |       |       | (C)
-   GND  GND          |     [C1]    --+-- Q1 (BC549)
-                     |     0.1u   / (B) \ (E)
-          KY-038 ----+-------+           |
-          (Audio IN)         |          [Re1] 47 ohm
-                           [Rb1]         |
-                            22k          +-------+
-                             |           |       |
-                            GND        [Re2]    [Ce]
-                                        330     10u
-                                         |       |
-                                        GND     GND
-```
+![alt text](image.png)
 
 ---
 
@@ -86,4 +65,4 @@ El montaje físico fue calibrado para mitigar acoples acústicos directos (*cros
   * **35 cm**
   * **40 cm**
   * **45 cm**
-* **Mesa de prueba:** Despejada durante el encendido inicial para la sustracción de fondo estático (`BACKGROUND_SCALE = 0.98f`).
+* **Mesa de prueba:** Despejada durante el encendido inicial para la sustracción de fondo estático.

@@ -77,7 +77,7 @@
 #define SPATIAL_MATCH_CM                                                       \
   3.5f                  // Coincidencia espacial para confirmar nuevo blanco
 #define CONFIRM_COUNT 2 // Detecciones consecutivas para enganchar
-#define LOST_COUNT 4    // Ciclos sin eco para declarar "Buscando..."
+#define LOST_COUNT 5    // Ciclos sin eco para declarar "Buscando..."
 
 // Estructura de telemetría de candidatos
 struct PeakCandidate {
@@ -295,16 +295,18 @@ float calibrationOffset(float d_raw_cm) {
 // 1788; eco disco 2600-6000)
 float minNetThreshold(int k) {
   if (k <= 55) {
-    return 3200.0f; // Tramo 30 cm (eco real disco: 7800-9800; vacío <= 2246)
+    return 3200.0f; // Tramo 30 cm (eco real disco: 6000-7200; vacío <= 2126)
   } else if (k <= 61) {
-    return 1500.0f; // Tramo 35 cm (eco neto cresta con sombra: ~5000-6100;
+    return 1500.0f; // Tramo 35 cm (eco neto cresta con sombra: ~4500-5300;
                     // vacío <= 0)
   } else if (k <= 67) {
-    return 2100.0f; // Tramo 40 cm (eco real disco: 5000-6000; vacío <= 1471)
+    return 750.0f; // Tramo 40 cm (eco neto cresta con sombra: 893-2085; vacío
+                   // <= 707)
   } else if (k <= 70) {
-    return 1500.0f; // Tramo 43 cm (vacío <= 0)
+    return 1200.0f; // Tramo 43 cm
   } else {
-    return 1400.0f; // Tramo 45 cm (eco real disco: 1480-2737; vacío <= 1235)
+    return 750.0f; // Tramo 45 cm (eco neto cresta con sombra: 3200-3700; vacío
+                   // <= 0 con guardia)
   }
 }
 
@@ -314,12 +316,11 @@ float minRatioThreshold(int k) {
   } else if (k <= 61) {
     return 1.15f; // Tramo 35 cm
   } else if (k <= 67) {
-    return 1.30f;
+    return 1.20f; // Tramo 40 cm (ratio sobre piso ensombrecido: 1.37-2.19)
   } else if (k <= 70) {
-    return 1.25f;
+    return 1.20f;
   } else {
-    return 1.40f; // Tramo 45 cm (en vacío ratio es <= 1.38; eco real
-                  // es 1.42-1.93)
+    return 1.15f; // Tramo 45 cm (ratio sobre piso ensombrecido: 1.53-1.76)
   }
 }
 
@@ -612,8 +613,8 @@ void setup() {
   lcdPrint("Silencio total  ");
 
   // Ráfagas de calentamiento previo para estabilizar el amplificador TPA3110 y
-  // el parlante
-  for (int w = 0; w < 4; w++) {
+  // el parlante en régimen térmico
+  for (int w = 0; w < 8; w++) {
     acquireSignal();
     delay(50);
   }
@@ -708,29 +709,66 @@ void loop() {
   // 3. Extracción de Energía Neta de Eco (Sustracción de Fondo Estático)
   for (int i = 0; i < FFT_SIZE; i++) {
     float raw = env_accum[i];
-    // Margen del 5% general, y 15% en la pared (k >= 71) para absorber el eco
-    // residual sin estrangular ecos reales débiles a 45 cm
-    float bg_margin = (i >= 71) ? 1.15f : 1.05f;
+    // Margen de guarda del 8% para absorber fluctuaciones térmicas y deriva del
+    // fondo en vacío
+    float bg_margin = 1.08f;
     float bg = bg_margin * bg_envelope[i];
     float diff = raw - bg;
     net_signal[i] = (diff > 0.0f) ? diff : 0.0f;
   }
 
-  // 3b. Detección de Blanco en Zona Enmascarada por Sombra Acústica (35 cm /
-  // k=56..60) Cuando el disco de 36 cm se coloca a 35 cm, intercepta y
-  // ensombrece físicamente el rebote estático de la mesa (que en vacío alcanza
-  // ~14500 en k=58). En consecuencia, RAW en k=54..55 cae a < 60% del fondo, y
-  // emerge la cresta directa del disco en k=57..59 con RAW > 7000.
-  bool shadow_detected =
-      (bg_envelope[54] > 2000.0f && bg_envelope[55] > 2000.0f) &&
-      (env_accum[54] < 0.60f * bg_envelope[54]) &&
-      (env_accum[55] < 0.60f * bg_envelope[55]);
+  // 3b. Detección de Blanco en Zonas Enmascaradas por Sombra Acústica
+  // El disco de aluminio de 36 cm actúa como barrera acústica, interceptando
+  // y atenuando físicamente las reflexiones estáticas de la mesa o pared de
+  // fondo.
 
-  if (shadow_detected) {
-    for (int k = 56; k <= 60; k++) {
+  // Caso 45 cm (k=73): Cresta física directa en k=73 con atenuación de pared en
+  // k=70..71
+  bool shadow_45 =
+      (env_accum[73] > env_accum[72] && env_accum[73] >= env_accum[74]) &&
+      (env_accum[73] > 7500.0f) &&
+      (bg_envelope[70] > 5000.0f && bg_envelope[71] > 5000.0f) &&
+      ((env_accum[70] < 0.75f * bg_envelope[70]) ||
+       (env_accum[71] < 0.70f * bg_envelope[71]));
+
+  // Caso 40 cm (k=63..66): El lóbulo principal de la mesa en k=61..62 se
+  // desploma (> 65% de caída)
+  bool shadow_40 = (!shadow_45) &&
+                   (bg_envelope[61] > 5000.0f && bg_envelope[62] > 5000.0f) &&
+                   ((env_accum[61] < 0.40f * bg_envelope[61]) ||
+                    (env_accum[62] < 0.35f * bg_envelope[62])) &&
+                   (env_accum[64] > 2600.0f || env_accum[65] > 2600.0f);
+
+  // Caso 35 cm (k=58..61): Cresta directa en k=59..60 con atenuación en k=56,
+  // sin ecos en 40 o 45 cm
+  bool is_peak_35 =
+      (env_accum[59] > env_accum[58] && env_accum[59] >= env_accum[60]) ||
+      (env_accum[60] > env_accum[59] && env_accum[60] >= env_accum[61]);
+  bool shadow_35 = (!shadow_45) && (!shadow_40) && is_peak_35 &&
+                   (env_accum[56] < 4500.0f) &&
+                   (env_accum[59] > 6500.0f || env_accum[60] > 6500.0f);
+
+  if (shadow_45) {
+    float floor_val = fminf(env_accum[71], env_accum[75]);
+    float net_shadow = env_accum[73] - floor_val;
+    if (net_shadow > net_signal[73]) {
+      net_signal[73] = net_shadow;
+    }
+  } else if (shadow_40) {
+    for (int k = 63; k <= 66; k++) {
       if (env_accum[k] > env_accum[k - 1] && env_accum[k] >= env_accum[k + 1] &&
-          env_accum[k] > 7000.0f) {
-        float floor_val = fminf(env_accum[54], env_accum[55]);
+          env_accum[k] > 2600.0f) {
+        float floor_val = fminf(env_accum[62], env_accum[63]);
+        float net_shadow = env_accum[k] - floor_val;
+        if (net_shadow > net_signal[k]) {
+          net_signal[k] = net_shadow;
+        }
+      }
+    }
+  } else if (shadow_35) {
+    for (int k = 58; k <= 61; k++) {
+      if (env_accum[k] > env_accum[k - 1] && env_accum[k] >= env_accum[k + 1]) {
+        float floor_val = fminf(env_accum[55], env_accum[56]);
         float net_shadow = env_accum[k] - floor_val;
         if (net_shadow > net_signal[k]) {
           net_signal[k] = net_shadow;
@@ -738,6 +776,8 @@ void loop() {
       }
     }
   }
+
+  bool shadow_detected = shadow_35 || shadow_40 || shadow_45;
 
   // Energía total en la banda de búsqueda
   float total_band_energy = 0.0f;
@@ -758,20 +798,51 @@ void loop() {
     if (!is_peak)
       continue;
 
+    // En el extremo lejano (k >= 71), la pared estática en vacío tiene una
+    // pendiente descendente muy pronunciada. Un eco real debe ser una cresta
+    // física en RAW o tener sombra de pared activa para evitar falsas alarmas
+    // por residuo de pendiente.
+    if (k >= 71 && !shadow_45) {
+      if (env_accum[k] <= env_accum[k - 1]) {
+        continue;
+      }
+    }
+
     float raw_val = env_accum[k];
     float bg_val = g_scale * bg_envelope[k];
 
     // Ratio de potencia sobre el fondo (o sobre el piso ensombrecido si hay
     // sombra)
     float ratio;
-    if (shadow_detected && k >= 56 && k <= 60) {
-      float floor_val = fminf(env_accum[54], env_accum[55]);
+    if (shadow_35 && k >= 58 && k <= 61) {
+      float floor_val = fminf(env_accum[55], env_accum[56]);
       ratio = (floor_val > 10.0f) ? (raw_val / floor_val) : 2.0f;
+    } else if (shadow_40 && k >= 63 && k <= 66) {
+      float floor_val = fminf(env_accum[62], env_accum[63]);
+      ratio = (floor_val > 10.0f) ? (raw_val / floor_val) : 1.5f;
+    } else if (shadow_45 && (k >= 72 && k <= 74)) {
+      float floor_val = fminf(env_accum[71], env_accum[75]);
+      ratio = (floor_val > 10.0f) ? (raw_val / floor_val) : 1.5f;
     } else {
       ratio = (bg_val > 10.0f) ? (raw_val / bg_val) : 1.0f;
     }
 
-    float min_net = minNetThreshold(k);
+    // Umbral adaptativo: En ausencia de sombra en la mesa/pared, mantener 1800
+    // para suprimir fluctuaciones del fondo en vacío. Con sombra activa,
+    // descender a 750.
+    float min_net;
+    if (k <= 55) {
+      min_net = 3200.0f;
+    } else if (k <= 61) {
+      min_net = 1500.0f;
+    } else if (k <= 67) {
+      min_net = shadow_40 ? 750.0f : 1800.0f;
+    } else if (k <= 70) {
+      min_net = 1500.0f;
+    } else {
+      min_net = shadow_45 ? 750.0f : 1800.0f;
+    }
+
     float min_rat = minRatioThreshold(k);
     float cfar_th = localCfarThreshold(k, net_signal);
     float coh = peakCoherence(k, net_signal, 3);
@@ -780,7 +851,7 @@ void loop() {
     // 1) Supera el umbral adaptativo por distancia
     // 2) Supera el CFAR local
     // 3) Ratio positivo significativo sobre el fondo
-    // 4) Coherencia de pico definida (>= 1.35)
+    // 4) Coherencia de pico definida (>= 1.15)
     bool pass_net = (net_val >= min_net);
     bool pass_cfar = (net_val >= cfar_th);
     bool pass_ratio = (ratio >= min_rat);
@@ -788,9 +859,18 @@ void loop() {
 
     if (pass_net && pass_cfar && pass_ratio && pass_coh) {
       // Interpolación parabólica sub-muestra en el vértice
-      float y_prev = net_signal[k - 1];
-      float y_curr = net_val;
-      float y_next = net_signal[k + 1];
+      float y_prev, y_curr, y_next;
+      if ((shadow_35 && k >= 56 && k <= 60) ||
+          (shadow_40 && k >= 63 && k <= 66) ||
+          (shadow_45 && k >= 72 && k <= 74)) {
+        y_prev = env_accum[k - 1];
+        y_curr = raw_val;
+        y_next = env_accum[k + 1];
+      } else {
+        y_prev = net_signal[k - 1];
+        y_curr = net_val;
+        y_next = net_signal[k + 1];
+      }
       float denom = 2.0f * (y_prev - 2.0f * y_curr + y_next);
       float delta = 0.0f;
       if (fabsf(denom) > 1e-4f) {
@@ -840,11 +920,11 @@ void loop() {
 
     chosen_idx = best_idx;
     for (int i = 0; i < best_idx; i++) {
-      // Priorizar el primer eco físico directo si tiene buen score relativo
-      // (>=50%) o energía neta franca (>=1000) sobre reflexiones secundarias
-      // posteriores
-      if (candidates[i].score >= 0.50f * max_score ||
-          candidates[i].net >= 1000.0f) {
+      // Priorizar el primer eco físico directo si tiene score dominante
+      // comparable
+      // (>= 75% del máximo) y energía franca primaria (>= 4000)
+      if (candidates[i].score >= 0.75f * max_score &&
+          candidates[i].net >= 4000.0f) {
         chosen_idx = i;
         break;
       }
@@ -934,16 +1014,16 @@ void loop() {
     }
     Serial.println();
 
-    Serial.print("  [NET 52-66]: ");
-    for (int k = 52; k <= 66; k++)
+    Serial.print("  [NET 52-75]: ");
+    for (int k = 52; k <= 75; k++)
       Serial.printf("%d:%.0f ", k, net_signal[k]);
     Serial.println();
-    Serial.print("  [RAW 52-66]: ");
-    for (int k = 52; k <= 66; k++)
+    Serial.print("  [RAW 52-75]: ");
+    for (int k = 52; k <= 75; k++)
       Serial.printf("%d:%.0f ", k, env_accum[k]);
     Serial.println();
-    Serial.print("  [BG 52-66]:  ");
-    for (int k = 52; k <= 66; k++)
+    Serial.print("  [BG 52-75]:  ");
+    for (int k = 52; k <= 75; k++)
       Serial.printf("%d:%.0f ", k, bg_envelope[k]);
     Serial.println();
 
@@ -1007,16 +1087,16 @@ void loop() {
         adc_min, adc_max, adc_vpp, rms_val, total_band_energy,
         tracking_active ? "SI" : "NO", shadow_detected ? "SI" : "NO", det_rate);
 
-    Serial.print("  [NET 52-66]: ");
-    for (int k = 52; k <= 66; k++)
+    Serial.print("  [NET 52-75]: ");
+    for (int k = 52; k <= 75; k++)
       Serial.printf("%d:%.0f ", k, net_signal[k]);
     Serial.println();
-    Serial.print("  [RAW 52-66]: ");
-    for (int k = 52; k <= 66; k++)
+    Serial.print("  [RAW 52-75]: ");
+    for (int k = 52; k <= 75; k++)
       Serial.printf("%d:%.0f ", k, env_accum[k]);
     Serial.println();
-    Serial.print("  [BG 52-66]:  ");
-    for (int k = 52; k <= 66; k++)
+    Serial.print("  [BG 52-75]:  ");
+    for (int k = 52; k <= 75; k++)
       Serial.printf("%d:%.0f ", k, bg_envelope[k]);
     Serial.println();
 
